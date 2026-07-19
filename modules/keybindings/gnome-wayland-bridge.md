@@ -3,7 +3,7 @@
 Everything here is optional. Layer 1 (`/etc/keyd/default.conf`) is a working
 setup on its own; this adds the per-application behaviour, chiefly making
 `Super+C` mean Ctrl+Shift+C inside a terminal. See
-[ADR 0002](decisions/0002-macos-keybindings.md) for why it's built this way.
+[ADR 0002](../../docs/decisions/0002-macos-keybindings.md) for why it's built this way.
 
 ## How it works
 

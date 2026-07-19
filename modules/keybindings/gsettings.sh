@@ -14,12 +14,18 @@ echo "==> Super+A is Cmd+A (select all); moving the app grid off it"
 # Super+Space = Spotlight, Super+Shift+Space = Launchpad.
 gsettings set org.gnome.shell.keybindings toggle-application-view "['<Shift><Super>space']"
 
-echo "==> asserting the macOS-shaped defaults (no-ops on a stock GNOME)"
+echo "==> Cmd+Space -> overview (this one is NOT a GNOME default)"
+# Verified with `dconf read`, not `gsettings get`: the schema default for
+# toggle-overview is @as [] -- unbound. Stock GNOME reaches the overview via the
+# Super *tap* (overlay-key). Super+Space is a real addition.
+gsettings set org.gnome.shell.keybindings toggle-overview "['<Super>space']"
+
+echo "==> re-asserting the stock defaults (genuine no-ops; here so a machine"
+echo "    with old customizations converges on the same state)"
 gsettings set org.gnome.desktop.wm.keybindings switch-applications "['<Super>Tab', '<Alt>Tab']"
 gsettings set org.gnome.desktop.wm.keybindings switch-applications-backward "['<Shift><Super>Tab', '<Shift><Alt>Tab']"
 gsettings set org.gnome.desktop.wm.keybindings switch-group "['<Super>Above_Tab', '<Alt>Above_Tab']"
 gsettings set org.gnome.desktop.wm.keybindings switch-group-backward "['<Shift><Super>Above_Tab', '<Shift><Alt>Above_Tab']"
-gsettings set org.gnome.shell.keybindings toggle-overview "['<Super>space']"
 gsettings set org.gnome.desktop.wm.keybindings minimize "['<Super>h']"
 
 echo

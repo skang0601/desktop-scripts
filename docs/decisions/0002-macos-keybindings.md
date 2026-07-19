@@ -84,25 +84,40 @@ chord case works without extra configuration.
 
 ### Layer 2 - GNOME, mostly already done
 
-GNOME's defaults are already macOS-shaped, which is easy to miss:
+Most of GNOME's defaults are already macOS-shaped, which is easy to miss and
+means Layer 2 is far smaller than it looks:
 
-| GNOME default | macOS equivalent |
-| --- | --- |
-| `switch-applications` = `<Super>Tab` | Cmd+Tab |
-| `switch-group` = `<Super>Above_Tab` | Cmd+\` |
-| `toggle-overview` = `<Super>space` | Cmd+Space / Spotlight |
-| `minimize` = `<Super>h` | Cmd+H |
-| `overlay-key` = `Super` (tap) | Mission Control |
+| Binding | Stock GNOME default? | macOS equivalent |
+| --- | --- | --- |
+| `switch-applications` = `<Super>Tab` | yes | Cmd+Tab |
+| `switch-group` = `<Super>Above_Tab` | yes | Cmd+\` |
+| `minimize` = `<Super>h` | yes | Cmd+H |
+| `overlay-key` = `Super` (tap) | yes | Mission Control |
+| `toggle-overview` = `<Super>space` | **no -- unbound by default** | Cmd+Space / Spotlight |
 
-None of these need configuration. They only need Super to *survive* keyd, which
-is what `[mac:M]` guarantees. Keys deliberately left out of the layer for this
-reason: `tab`, `` ` ``, `space`, `h`.
+The first four need no configuration at all; they only need Super to *survive*
+keyd, which is what `[mac:M]` guarantees.
+
+`toggle-overview` is the exception and was initially mis-recorded here as a
+default. Checking `dconf read` rather than `gsettings get` -- the latter happily
+returns a user override -- shows the schema default is `@as []`, i.e. unbound.
+Stock GNOME reaches the overview via the Super *tap* (`overlay-key`), not
+Super+Space. So `Super+Space` for Spotlight is a real change `gsettings.sh` has
+to make, not something inherited.
+
+Keys deliberately left out of the keyd layer so GNOME can have them: `tab`,
+`` ` ``, `space`, `h`.
+
+The general lesson, worth repeating for any future module: read `dconf read` to
+tell a default from a local customization. `gsettings get` cannot distinguish
+them, and a setup script built by reading one machine's `gsettings get` output
+will quietly encode that machine's accidents as though they were universal.
 
 One real collision remains: `Super+A` is GNOME's app grid and is also Cmd+A
 select-all. Select-all wins -- it is used hundreds of times a day. Any key
 present in the layer is fully consumed from GNOME (including with Shift held),
 so the app grid must move to a key that is *not* in the layer.
-`gnome/gsettings.sh` moves it to `<Shift><Super>space`, which keeps a tidy
+`modules/keybindings/gsettings.sh` moves it to `<Shift><Super>space`, which keeps a tidy
 parallel: Super+Space is Spotlight, Super+Shift+Space is Launchpad.
 
 ### Layer 3 - keyd-application-mapper + GNOME extension
@@ -118,7 +133,7 @@ extension only *reports focus*. It never injects keys -- keyd does the emission,
 in the kernel, where Wayland's restrictions don't apply.
 
 Status caveat: the bundled extension declares support through GNOME 49 and not
-50. See `docs/gnome-wayland-bridge.md` for the workaround and current state.
+50. See `modules/keybindings/gnome-wayland-bridge.md` for the workaround and current state.
 
 ### Layer 4 - terminal config
 
