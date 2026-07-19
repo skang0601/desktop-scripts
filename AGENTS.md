@@ -42,7 +42,11 @@ those, and be specific about the condition rather than vague.
 
 ## Conventions
 
-- Installers are idempotent and safe to re-run.
+- Installers are idempotent and safe to re-run, and accept `--dry-run`.
+- Source `lib/common.sh` and wrap state-changing commands in `run`, so
+  `--dry-run` prints them instead of executing. Anything with a pipe, redirect
+  or heredoc needs an explicit `if dry; then ... fi` -- otherwise the dry-run
+  output claims to do something it doesn't.
 - Scripts call `sudo` inline; they are never run as root.
 - Config lives in the repo and is installed to its system location by the
   module's `install.sh`. Nothing is edited in place under `/etc`.

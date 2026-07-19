@@ -24,18 +24,23 @@ after adding a module is the normal way to work.
 
 ```sh
 ./bootstrap.sh --list          # what's available and what this host enables
+./bootstrap.sh --dry-run       # print every command, change nothing
 ./bootstrap.sh keybindings     # run one module, ignoring the host file
 ```
+
+`--dry-run` is passed through to each module, so it's the way to inspect what a
+fresh machine is about to have done to it before committing.
 
 ## Modules
 
 | Module | What it does |
 | --- | --- |
 | [`keybindings`](modules/keybindings/) | macOS-style Cmd/Ctrl split via keyd, plus the GNOME shortcut adjustments that go with it |
+| [`packages`](modules/packages/) | apps and tooling -- emacs, go, zig, claude-code, steam, jetbrains-toolbox -- installed only when missing |
 
 Each module owns its own config, installer and README. Adding one means creating
 `modules/<name>/install.sh` and listing it in the relevant host file -- there is
-no central registry to update.
+no central registry to update. Shared shell helpers live in `lib/common.sh`.
 
 ## Per-machine differences
 
@@ -56,6 +61,8 @@ expensive thing to rediscover after a reinstall is *why*.
 - [0003](docs/decisions/0003-touchpad-quirk-override.md) -- the libinput quirk
 - [0004](docs/decisions/0004-installing-on-atomic-systems.md) -- supporting atomic
   systems (Bazzite, Silverblue) in every installer
+- [0005](docs/decisions/0005-package-install-strategy.md) -- preferring
+  user-level installs over layering
 
 ## Conventions
 

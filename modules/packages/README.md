@@ -1,0 +1,58 @@
+# packages
+
+Apps and tooling, installed only when missing.
+
+```sh
+./install.sh              # everything in apps.d/
+./install.sh emacs go     # only these
+./install.sh --dry-run    # show what would happen, change nothing
+```
+
+## What's here
+
+| App | Method | Notes |
+| --- | --- | --- |
+| emacs | brew / dnf | native, not Flatpak -- see below |
+| go | brew / dnf | Fedora calls it `golang` |
+| zig | brew / dnf | |
+| claude-code | vendor installer | lands in `~/.local/bin`, no root |
+| steam | Flatpak | preinstalled on Bazzite, so usually a no-op |
+| jetbrains-toolbox | tarball | bootstraps to `~/.local/bin`, then self-updates |
+
+## Install strategy
+
+Ordered by how little they disturb the system, which matters on atomic images
+where layering costs a reboot and can block a rebase (ADR 0005):
+
+1. **Homebrew** for CLI tooling. User-level, no reboot, no layering. Bazzite
+   ships it; on a traditional system it's usually absent, so dnf takes over.
+2. **dnf** on traditional systems.
+3. **Flatpak** for GUI apps. Flathub is preconfigured on Bazzite.
+4. **Vendor installers** where nothing else is published, kept to `$HOME`.
+5. **`rpm-ostree` layering** only as a last resort, with a loud reboot warning.
+
+emacs is deliberately native rather than Flatpak: as a development editor it
+needs to reach compilers, LSP servers and toolchains that live outside the
+sandbox, and punching those through one by one is worse than the alternative.
+
+## Adding an app
+
+Drop a file in `apps.d/`. The whole contract is three things:
+
+```sh
+APP_NAME=ripgrep
+
+app_check()   { have rg; }
+app_install() { install_cli ripgrep rg; }   # (fedora_name, brew_name)
+```
+
+`app_check` gates the install, which is what makes re-running a no-op. Each file
+is sourced in its own subshell, so definitions can't leak between apps.
+
+Helpers available: `install_cli`, `install_flatpak`, `flatpak_installed` from
+`lib.sh`; `have`, `run`, `dry`, `say`, `warn`, `is_atomic` from
+`../../lib/common.sh`.
+
+Anything doing more than a simple command -- pipes, redirects, heredocs -- must
+handle `--dry-run` itself with an explicit `if dry; then ... fi`, or the dry-run
+output will lie about what it does.

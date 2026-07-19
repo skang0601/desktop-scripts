@@ -3,10 +3,12 @@
 #
 #   ./bootstrap.sh              # modules from hosts/$(hostname).modules, or all
 #   ./bootstrap.sh --list       # show what's available and what's enabled
+#   ./bootstrap.sh --dry-run    # show every command, change nothing
 #   ./bootstrap.sh keybindings  # run specific modules, ignoring the host file
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$REPO/lib/common.sh"
 HOSTFILE="$REPO/hosts/$(hostname).modules"
 
 available() { find "$REPO/modules" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort; }
@@ -19,7 +21,17 @@ enabled() {
   fi
 }
 
-if [[ "${1:-}" == "--list" ]]; then
+ARGS=()
+for a in "$@"; do
+  case "$a" in
+    --dry-run) DRY_RUN=1; export DRY_RUN ;;
+    --list) LIST=1 ;;
+    -*) warn "unknown option: $a"; exit 2 ;;
+    *) ARGS+=("$a") ;;
+  esac
+done
+
+if [[ -n "${LIST:-}" ]]; then
   echo "available modules:"
   available | sed 's/^/  /'
   echo
@@ -32,8 +44,8 @@ if [[ "${1:-}" == "--list" ]]; then
   exit 0
 fi
 
-if [[ $# -gt 0 ]]; then
-  MODULES=("$@")
+if [[ ${#ARGS[@]} -gt 0 ]]; then
+  MODULES=("${ARGS[@]}")
 else
   mapfile -t MODULES < <(enabled)
   [[ -f "$HOSTFILE" ]] \
@@ -50,8 +62,12 @@ for m in "${MODULES[@]}"; do
   echo "======================================================================"
   echo "  $m"
   echo "======================================================================"
-  "$script"
+  if dry; then "$script" --dry-run; else "$script"; fi
 done
 
 echo
-echo "bootstrap complete. Some modules have manual follow-up -- see their READMEs."
+if dry; then
+  echo "dry run complete. Nothing was changed."
+else
+  echo "bootstrap complete. Some modules have manual follow-up -- see their READMEs."
+fi
