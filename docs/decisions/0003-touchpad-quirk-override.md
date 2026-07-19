@@ -1,4 +1,4 @@
-# 0005 - Tag keyd's virtual keyboard as internal for libinput
+# 0003 - Tag keyd's virtual keyboard as internal for libinput
 
 - Status: accepted
 - Date: 2026-07-19
@@ -17,7 +17,7 @@ installing keyd silently disables palm rejection and the cursor starts jumping
 mid-sentence.
 
 The failure is easy to misattribute to the touchpad driver or a GNOME regression
-rather than to the remapper.
+rather than to the remapper, which is the main reason this is written down.
 
 ## Decision
 
@@ -28,6 +28,6 @@ matching on the device name and asserting `AttrKeyboardIntegration=internal`.
 
 - Palm rejection behaves as it did before keyd.
 - The match is on the literal device name `keyd virtual keyboard`; if upstream
-  renames the uinput device, this silently stops applying. Verify with
+  renames the uinput device this silently stops applying. Verify with
   `libinput list-devices` after a keyd upgrade.
-- Irrelevant on a desktop, but harmless there.
+- Irrelevant on a desktop, harmless there.
