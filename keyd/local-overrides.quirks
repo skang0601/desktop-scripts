@@ -1,0 +1,13 @@
+# Installed to /etc/libinput/local-overrides.quirks
+#
+# keyd presents itself to the kernel as an external virtual keyboard. libinput's
+# "disable touchpad while typing" (palm rejection) only engages for keyboards it
+# considers internal, so on a laptop the feature silently dies once keyd runs.
+# Tagging the virtual device as internal restores it.
+#
+# See docs/decisions/0005-touchpad-quirk-override.md
+
+[Virtual Keyboard]
+MatchUdevType=keyboard
+MatchName=keyd virtual keyboard
+AttrKeyboardIntegration=internal
