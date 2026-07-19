@@ -11,10 +11,8 @@ COPR=alternateved/keyd     # keyd is not in Fedora proper; this COPR tracks it
 is_atomic() { [[ -f /run/ostree-booted ]]; }
 
 check_input_remapper() {
-  # Bazzite ships input-remapper installed AND enabled, with its .desktop hidden
-  # (NoDisplay=true), so it is easy to miss. Both it and keyd grab evdev devices
-  # and create uinput virtual keyboards. No confirmed breakage is documented,
-  # but running both is an obvious overlap.
+  # Bazzite enables input-remapper by default and hides its desktop entry, so
+  # it is easy to miss. It grabs the same evdev devices keyd does.
   if systemctl is-enabled --quiet input-remapper.service 2>/dev/null; then
     echo
     echo "!! input-remapper.service is enabled (Bazzite enables it by default)."
@@ -32,8 +30,7 @@ install_keyd() {
 
   if is_atomic; then
     echo "==> atomic system detected (ostree)"
-    # Bazzite's documented pattern: dnf5 manages the repo file only, rpm-ostree
-    # does the install. `dnf5 install` does not layer onto the running host.
+    # dnf5 manages the repo file only; it does not layer onto the running host.
     if command -v dnf5 >/dev/null; then
       sudo dnf5 copr enable -y "$COPR"
     else
@@ -61,8 +58,8 @@ install_keyd
 check_input_remapper
 
 echo "==> installing /etc/keyd/default.conf"
-# /etc is writable on ostree systems and survives upgrades and rebases: files
-# with no /usr/etc counterpart are propagated forever by the 3-way merge.
+# On ostree systems /etc is writable, and files with no /usr/etc counterpart
+# survive upgrades and rebases via the 3-way merge.
 sudo install -Dm644 "$MODULE/default.conf" /etc/keyd/default.conf
 
 echo "==> validating config before touching the running daemon"
@@ -72,10 +69,9 @@ echo "==> installing libinput touchpad quirk"
 sudo install -Dm644 "$MODULE/local-overrides.quirks" /etc/libinput/local-overrides.quirks
 
 echo "==> enabling keyd.service"
-# The RPM puts the unit in /usr/lib/systemd/system, which is loaded normally.
-# (Building from source installs to /usr/local/lib/systemd/system instead, which
-# systemd on Fedora Atomic does NOT load -- the service looks enabled and never
-# starts. See keyd issue #1139. Another reason to prefer the package.)
+# Requires the packaged keyd. A source build installs its unit to
+# /usr/local/lib/systemd/system, which systemd on Fedora Atomic does not load:
+# the service reports enabled and never starts (keyd issue #1139).
 sudo systemctl enable --now keyd
 sudo keyd reload
 

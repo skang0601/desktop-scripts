@@ -40,11 +40,10 @@ without special handling.
   or a user-level install where one exists, and only layer when it doesn't.
 - **Prefer packages over `make install` on these systems.** keyd built from
   source puts its unit in `/usr/local/lib/systemd/system/`, which systemd on
-  Fedora Atomic does not load at boot -- the service reports as enabled and
-  never starts (keyd issue #1139). A silent failure worth avoiding.
+  Fedora Atomic does not load at boot; the service reports as enabled and never
+  starts (keyd issue #1139).
 - Bazzite ships `input-remapper` installed and enabled by default, with its
-  desktop entry hidden, so it is easy not to notice. It grabs the same evdev
-  devices keyd does. No breakage is documented, but the keybindings installer
-  warns when it sees the service enabled.
+  desktop entry hidden. It grabs the same evdev devices keyd does, so the
+  keybindings installer warns when it sees the service enabled.
 - Reboots in the middle of a bootstrap are unavoidable on atomic systems. The
   installers say so loudly rather than appearing to have finished.

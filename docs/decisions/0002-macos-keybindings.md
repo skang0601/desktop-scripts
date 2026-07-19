@@ -61,31 +61,29 @@ c = C-insert
 ...
 ```
 
-Three details, each verified against keyd 2.6.0 rather than assumed:
+Three details of keyd 2.6.0 that the config depends on:
 
-**`layer()`, not `overload()`.** `meta = overload(mac, meta)` does not parse --
-`meta` is a left-hand-side alias, not a key name, and `keyd check` rejects it.
-`overload(mac, leftmeta)` parses but keyd silently rewrites the tap action to
-`layer(meta)`, which never opens the overview. Plain `layer()` is correct
-regardless: keyd special-cases an isolated tap of a layer key and emits a clean
-meta down/up pair, so tap-Super still opens Activities.
+**`layer()` is the only workable form.** keyd special-cases an isolated tap of a
+layer key and emits a clean meta down/up pair, so tap-Super still opens
+Activities. `overload()` cannot substitute: `meta` is a left-hand-side alias
+rather than a key name, so `overload(mac, meta)` does not parse, and
+`overload(mac, leftmeta)` is silently rewritten to `layer(meta)`, which never
+opens the overview.
 
-**`[mac:M]`, not `[mac]`.** In a modifier layer, keys with no explicit mapping
-are emitted *with that modifier applied*. So `Super+Tab` still reaches GNOME as
-Super+Tab. A plain `[mac]` would drop Super and emit a bare Tab, silently
-breaking every GNOME Super binding. This is the single most important character
-in the file.
+**The `:M` on `[mac:M]` is load-bearing.** In a modifier layer, keys with no
+explicit mapping are emitted *with that modifier applied*, so `Super+Tab` still
+reaches GNOME as Super+Tab. A plain `[mac]` drops Super and emits a bare Tab,
+breaking every GNOME Super binding.
 
-**Explicit bindings ignore the layer's own modifier**, but not physically held
-ones. `c = C-insert` inside `[mac:M]` emits exactly Ctrl+Insert, not
-Super+Ctrl+Insert. Holding Shift as well passes through, so `Super+Shift+T`
-correctly becomes `Ctrl+Shift+T` rather than `Ctrl+T` -- the multi-modifier
-chord case works without extra configuration.
+**Explicit bindings ignore the layer's own modifier, but not physically held
+ones.** `c = C-insert` inside `[mac:M]` emits Ctrl+Insert, not
+Super+Ctrl+Insert, while a held Shift passes through -- so `Super+Shift+T` gives
+`Ctrl+Shift+T`, and multi-modifier chords need no extra configuration.
 
 ### Layer 2 - GNOME, mostly already done
 
-Most of GNOME's defaults are already macOS-shaped, which is easy to miss and
-means Layer 2 is far smaller than it looks:
+Most of GNOME's defaults are already macOS-shaped, which makes Layer 2 far
+smaller than it looks:
 
 | Binding | Stock GNOME default? | macOS equivalent |
 | --- | --- | --- |
@@ -98,20 +96,18 @@ means Layer 2 is far smaller than it looks:
 The first four need no configuration at all; they only need Super to *survive*
 keyd, which is what `[mac:M]` guarantees.
 
-`toggle-overview` is the exception and was initially mis-recorded here as a
-default. Checking `dconf read` rather than `gsettings get` -- the latter happily
-returns a user override -- shows the schema default is `@as []`, i.e. unbound.
+`toggle-overview` is the exception: its schema default is `@as []`, unbound.
 Stock GNOME reaches the overview via the Super *tap* (`overlay-key`), not
-Super+Space. So `Super+Space` for Spotlight is a real change `gsettings.sh` has
-to make, not something inherited.
+Super+Space, so `Super+Space` for Spotlight is a change `gsettings.sh` makes
+rather than something inherited.
 
-Keys deliberately left out of the keyd layer so GNOME can have them: `tab`,
-`` ` ``, `space`, `h`.
+Keys left out of the keyd layer so GNOME can have them: `tab`, `` ` ``, `space`,
+`h`.
 
-The general lesson, worth repeating for any future module: read `dconf read` to
-tell a default from a local customization. `gsettings get` cannot distinguish
-them, and a setup script built by reading one machine's `gsettings get` output
-will quietly encode that machine's accidents as though they were universal.
+Establish such defaults with `dconf read`, not `gsettings get`. `gsettings get`
+returns a user override indistinguishably from a schema default, so a setup
+script written by reading one machine's output will encode that machine's
+accidents as though they were universal.
 
 One real collision remains: `Super+A` is GNOME's app grid and is also Cmd+A
 select-all. Select-all wins -- it is used hundreds of times a day. Any key
@@ -128,24 +124,22 @@ awareness, which on Wayland only the compositor has. keyd's answer:
 extension **bundled in the keyd repo** feeds it the focused window's class over
 a FIFO.
 
-Note the division of labour, which is what makes this Wayland-legal: the
-extension only *reports focus*. It never injects keys -- keyd does the emission,
-in the kernel, where Wayland's restrictions don't apply.
+The division of labour is what makes this Wayland-legal: the extension only
+*reports focus* and never injects keys, while keyd does the emission in the
+kernel, where Wayland's restrictions don't apply.
 
-Status caveat: the bundled extension declares support through GNOME 49 and not
-50. See `modules/keybindings/gnome-wayland-bridge.md` for the workaround and current state.
+The bundled extension declares support through GNOME 49 and not 50. See
+`modules/keybindings/gnome-wayland-bridge.md` for the workaround.
 
 ### Layer 4 - terminal config
 
-Not used, and worth recording why, because it looks attractive.
-
-The proposal is to let terminals bind Super+C natively and skip the special-case
-entirely. It cannot work here: if keyd maps `c` in the layer, the terminal never
+Considered and rejected. The proposal is to let terminals bind Super+C natively
+and skip the special-case entirely. It cannot work here: if keyd maps `c` in the layer, the terminal never
 sees Super+C. To let it through, `c` would have to be unmapped -- and then
 Super+C does nothing in every GUI app. The two requirements are mutually
 exclusive without focus awareness, which is exactly why Layer 3 exists.
 
-What *does* buy graceful degradation is the choice of `C-insert`/`S-insert` over
+Graceful degradation comes instead from the choice of `C-insert`/`S-insert` over
 `C-c`/`C-v` for the clipboard. GTK4 binds both spellings, and many terminals
 accept the Insert forms too, so `Super+C` has a good chance of copying correctly
 in a terminal with no Layer 3 at all. Treat that as a cushion, not a guarantee:

@@ -59,7 +59,6 @@ expensive thing to rediscover after a reinstall is *why*.
 
 ## Conventions
 
-- Installers are idempotent and safe to re-run.
-- Anything that needs `sudo` calls it inline, so the scripts are not run as root.
-- Configuration lives in the repo and is installed to its system location by the
-  module's `install.sh`; nothing is edited in place under `/etc`.
+[AGENTS.md](AGENTS.md) (also readable as `CLAUDE.md`) holds the conventions for
+working in this repo, including the comment rule: comments explain why, not
+what, and never narrate how the author got there.

@@ -16,12 +16,12 @@ shouldn't suppress the touchpad, since your hands aren't over it. So on a laptop
 installing keyd silently disables palm rejection and the cursor starts jumping
 mid-sentence.
 
-The failure is easy to misattribute to the touchpad driver or a GNOME regression
-rather than to the remapper, which is the main reason this is written down.
+The failure is easy to misattribute to the touchpad driver or a GNOME
+regression rather than to the remapper.
 
 ## Decision
 
-Ship `keyd/local-overrides.quirks` -> `/etc/libinput/local-overrides.quirks`,
+Ship `modules/keybindings/local-overrides.quirks` -> `/etc/libinput/local-overrides.quirks`,
 matching on the device name and asserting `AttrKeyboardIntegration=internal`.
 
 ## Consequences
