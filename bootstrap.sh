@@ -61,22 +61,36 @@ else
     || echo "note: no $(basename "$HOSTFILE"), running everything"
 fi
 
+FAILED=()
 for m in "${MODULES[@]}"; do
   script="$REPO/modules/$m/install.sh"
   if [[ ! -x "$script" ]]; then
     echo "!! skipping '$m': no executable $script" >&2
+    FAILED+=("$m")
     continue
   fi
   echo
   echo "======================================================================"
   echo "  $m"
   echo "======================================================================"
+  # Modules are independent, so one that fails costs its own changes and not
+  # the rest of the run. Each module reports its own detail; this only records
+  # that it came back nonzero.
+  set +e
   if dry; then "$script" --dry-run; else "$script"; fi
+  rc=$?
+  set -e
+  (( rc == 0 )) || FAILED+=("$m")
 done
 
 echo
+if (( ${#FAILED[@]} )); then
+  warn "modules with failures: ${FAILED[*]}"
+  warn "scroll up for the detail, or re-run just those: ./bootstrap.sh ${FAILED[*]}"
+fi
 if dry; then
   echo "dry run complete. Nothing was changed."
 else
   echo "bootstrap complete. Some modules have manual follow-up -- see their READMEs."
 fi
+(( ${#FAILED[@]} == 0 ))

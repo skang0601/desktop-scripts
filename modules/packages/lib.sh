@@ -1,6 +1,14 @@
 # Install strategies for the packages module.
 # shellcheck shell=bash
 
+# app_install calls `blocked` to mean "this cannot be installed here, the
+# reason is known, and re-running will not change it" -- an upstream bug, an
+# unsupported platform. The summary keeps these apart from failures so a
+# standing block doesn't read as a fresh error on every run, and doesn't fail
+# the module's exit status.
+BLOCKED=79
+blocked() { warn "$*"; exit "$BLOCKED"; }
+
 # CLI/dev tooling. Homebrew first: it is user-level, needs no reboot, and avoids
 # layering entirely on atomic systems (ADR 0004/0005). Bazzite ships brew.
 install_cli() {
@@ -8,10 +16,24 @@ install_cli() {
 
   if have brew; then
     run brew install "$brew_pkg"
-  elif is_atomic; then
-    warn "no brew; layering $pkg (needs a reboot before it is usable)"
+  else
+    warn "no brew; falling back to the distro package"
+    install_rpm "$pkg"
+  fi
+}
+
+# Distro package, skipping brew entirely. For anything brew builds wrong for
+# this desktop: brew's Linux bottles are headless, so a package that has to
+# draw a window comes from the distro even though on atomic systems that means
+# layering and a reboot.
+install_rpm() {
+  local pkg="$1"
+
+  if is_atomic; then
+    warn "layering $pkg (needs a reboot before it is usable)"
     run sudo rpm-ostree install "$pkg"
-    # Apps run in subshells, so a variable cannot signal the parent.
+    # Apps run in subshells, so a variable cannot signal the parent. Reached
+    # only on success: install.sh runs each app under `set -e`.
     : > "$LAYERED_MARKER"
   else
     run sudo dnf install -y "$pkg"

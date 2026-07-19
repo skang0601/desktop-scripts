@@ -39,22 +39,68 @@ fi
 
 LAYERED_MARKER="$(mktemp -u)"
 export LAYERED_MARKER
-trap 'rm -f "$LAYERED_MARKER"' EXIT
+RESULTS="$(mktemp)"
+trap 'rm -f "$LAYERED_MARKER" "$RESULTS"' EXIT
 
 for f in "${FILES[@]}"; do
-  # Subshell per app so app_check/app_install definitions can't leak between files.
+  # errexit off around the app so a failing install is one bad line in the
+  # summary rather than the end of the run: the remaining apps are unrelated
+  # and there is no reason a broken package should hold them hostage.
+  set +e
   (
+    # Subshell per app so app_check/app_install definitions can't leak between
+    # files. errexit back on inside it, since the parent has it off and an
+    # app_install that fails halfway must not carry on to report success.
+    set -e
     source "$f"
     if app_check; then
       skip "$APP_NAME"
+      printf 'present\t%s\n' "$APP_NAME" >>"$RESULTS"
     else
       say "installing $APP_NAME"
-      app_install || warn "$APP_NAME failed"
+      app_install
+      printf 'installed\t%s\n' "$APP_NAME" >>"$RESULTS"
     fi
   )
+  rc=$?
+  set -e
+  # The app records its own outcome on the paths that work, where APP_NAME is
+  # in scope; a nonzero exit means it didn't get that far. apps.d filenames
+  # match their APP_NAME, so the basename names it just as well.
+  name="$(basename "$f" .sh)"
+  if (( rc == BLOCKED )); then
+    printf 'blocked\t%s\n' "$name" >>"$RESULTS"
+  elif (( rc != 0 )); then
+    warn "$name failed (exit $rc)"
+    printf 'failed\t%s\n' "$name" >>"$RESULTS"
+  fi
 done
+
+# One summary line per outcome, counted and named, or nothing when no app had
+# that outcome -- an empty "failed" row reads as reassurance and is worth not
+# printing at all.
+report() {
+  local outcome="$1" label="${2:-$1}" row
+  row="$(awk -F'\t' -v s="$outcome" \
+    '$1==s{n++; l=l sep $2; sep=", "} END{if(n) print n"\t"l}' "$RESULTS")"
+  [[ -n "$row" ]] || return 0
+  printf '    %-10s %2s  %s\n' "$label" "${row%%$'\t'*}" "${row#*$'\t'}"
+}
+
+echo
+say "summary"
+report installed
+report present
+report blocked
+report failed FAILED
 
 if [[ -e "$LAYERED_MARKER" ]]; then
   echo
   warn "packages were layered; reboot before they are usable"
+fi
+
+if grep -q '^failed' "$RESULTS"; then
+  echo
+  warn "re-run './install.sh <name>' to retry just the failures"
+  exit 1
 fi

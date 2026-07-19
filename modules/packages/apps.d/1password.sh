@@ -8,12 +8,20 @@ app_install() {
   # that out: no --filesystem=home, and $HOME is redirected into the sandbox,
   # so ~/.1password/agent.sock can never appear on the host. The ssh module
   # depends on that socket, so the Flatpak would break git over ssh.
-  add_1password_repo
+  # The desktop RPM cannot be layered as of 1Password 8.11 (2026-07): its %post
+  # runs `mkdir -p /usr/local/bin`, and on an ostree system /usr/local is a
+  # symlink into /var, which rpm-ostree's bwrap sandbox leaves unpopulated. The
+  # mkdir gets EEXIST on the dangling symlink and the scriptlet aborts, which
+  # rpm-ostree treats as fatal where dnf would only warn. 1Password have
+  # acknowledged it and are working on a fix with no timeline:
+  # https://www.1password.community/1password-at-home-31/update-to-fedora-silverblue-fails-25075
+  #
+  # The `op` CLI has no such scriptlet and still layers, so the ssh module's
+  # agent socket is the only thing actually lost here.
   if is_atomic; then
-    warn "layering 1password (needs a reboot before it is usable)"
-    run sudo rpm-ostree install 1password
-    : > "$LAYERED_MARKER"
-  else
-    run sudo dnf install -y 1password
+    blocked "1password: upstream %post is broken on ostree systems; re-run once 1Password ships the fix"
   fi
+
+  add_1password_repo
+  install_rpm 1password
 }
