@@ -188,12 +188,24 @@ sees Super+C. To let it through, `c` would have to be unmapped -- and then
 Super+C does nothing in every GUI app. The two requirements are mutually
 exclusive without focus awareness, which is exactly why Layer 3 exists.
 
-Graceful degradation comes instead from the choice of `C-insert`/`S-insert` over
-`C-c`/`C-v` for the clipboard. GTK4 binds both spellings, and many terminals
-accept the Insert forms too, so `Super+C` has a good chance of copying correctly
-in a terminal with no Layer 3 at all. Treat that as a cushion, not a guarantee:
-**verify it in your actual terminals**, and if it fails, that terminal needs an
-`app.conf` section and therefore a working extension.
+The choice of `C-insert`/`S-insert` over `C-c`/`C-v` for the clipboard buys
+this in GUI apps: GTK4 binds both spellings, so Super+C copies while Ctrl+C
+stays SIGINT.
+
+It buys nothing in a terminal. Ptyxis ignores both Insert forms as
+accelerators, so Super+C and Super+V do nothing there; rebinding
+`copy-clipboard` to `<ctrl>Insert` was tried and does not work. The terminal
+clipboard is `Ctrl+Shift+C`/`V`, reached by pressing those keys physically.
+There is no Super spelling for it without Layer 3, and this design has no
+fallback that changes that.
+
+Where a terminal *can* be met halfway is its other accelerators. Ptyxis exposes
+them as gsettings, and the nav layer makes several bare-Ctrl spellings
+unreachable from the keyboard -- physical Ctrl+A, Ctrl+F and Ctrl+N become
+Home, Right and Down -- so binding `select-all`, `search` and `new-window` to
+them gives Super+A/F/N a meaning in the terminal that nothing else can trigger.
+That is Layer 2 doing Layer 3's job for the subset of apps that expose their
+own keymap, and it survives a GNOME upgrade in a way the extension does not.
 
 ## Consequences
 

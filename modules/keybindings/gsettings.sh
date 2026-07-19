@@ -24,7 +24,7 @@ echo "==> MacEmacs gtk-key-theme for kill/yank in GTK3 text fields"
 # claims. install.sh links it into ~/.themes.
 gsettings set org.gnome.desktop.interface gtk-key-theme 'MacEmacs'
 
-echo "==> Ptyxis: Cmd+T new tab, Cmd+N new window"
+echo "==> Ptyxis: Cmd+A, Cmd+F, Cmd+T, Cmd+N"
 # The mac layer emits Ctrl+T and Ctrl+N, and app.conf cannot help here -- it
 # needs keyd-application-mapper, which has no working GNOME extension on
 # Shell 50. Moving the terminal's own accelerators onto the bare-Ctrl spellings
@@ -37,8 +37,18 @@ echo "==> Ptyxis: Cmd+T new tab, Cmd+N new window"
 # close-tab deliberately stays on Ctrl+Shift+W. `w` is not in the nav layer, so
 # physical Ctrl+W still reaches the shell as delete-word-backward -- binding it
 # to close-tab would destroy a tab every time a word is erased mid-command.
+#
+# Ctrl+A and Ctrl+F are free the same way Ctrl+N is: the nav layer turns the
+# physical keys into Home and Right, so only Cmd can produce the bare Ctrl
+# spelling. Ctrl+T is the one that costs something.
+gsettings set org.gnome.Ptyxis.Shortcuts select-all '<ctrl>a'
+gsettings set org.gnome.Ptyxis.Shortcuts search '<ctrl>f'
 gsettings set org.gnome.Ptyxis.Shortcuts new-tab '<ctrl>t'
 gsettings set org.gnome.Ptyxis.Shortcuts new-window '<ctrl>n'
+
+# copy/paste stay on Ctrl+Shift+C/V. Ptyxis does not accept Ctrl+Insert or
+# Shift+Insert as accelerators, which is what the mac layer emits for Cmd+C/V,
+# so there is no Cmd spelling for the terminal clipboard without Layer 3.
 
 echo "==> re-asserting stock defaults so machines with old customizations converge"
 gsettings set org.gnome.desktop.wm.keybindings switch-applications "['<Super>Tab', '<Alt>Tab']"

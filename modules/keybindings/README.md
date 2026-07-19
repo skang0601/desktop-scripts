@@ -113,9 +113,12 @@ the mac layer emits, so `Cmd+T` and `Cmd+N` work in the terminal without Layer 3
 
 | Ptyxis action | Was | Now | Why it is safe |
 | --- | --- | --- | --- |
-| `new-tab` | `Ctrl+Shift+T` | `Ctrl+T` | costs readline's transpose-chars |
+| `select-all` | `Ctrl+Shift+A` | `Ctrl+A` | free -- the nav layer eats physical `Ctrl+A` |
+| `search` | `Ctrl+Shift+F` | `Ctrl+F` | free -- the nav layer eats physical `Ctrl+F` |
 | `new-window` | `Ctrl+Shift+N` | `Ctrl+N` | free -- the nav layer eats physical `Ctrl+N` |
+| `new-tab` | `Ctrl+Shift+T` | `Ctrl+T` | costs readline's transpose-chars |
 | `close-tab` | `Ctrl+Shift+W` | *unchanged* | `Ctrl+W` is still delete-word in the shell |
+| `copy`/`paste` | `Ctrl+Shift+C`/`V` | *unchanged* | Ptyxis ignores the Insert forms |
 
 `Ctrl+N` is the clean case: the nav layer consumes physical `Ctrl+N` and emits
 `Down`, so only `Cmd+N` can produce a real `Ctrl+N`. `close-tab` is deliberately
@@ -151,11 +154,12 @@ The design degrades in that order rather than collapsing.
 ## Two things worth knowing
 
 **The clipboard uses `Ctrl+Insert`/`Shift+Insert`, not `Ctrl+C`/`Ctrl+V`.** GTK4
-binds both spellings, and many terminals accept the Insert forms too -- so
-`Super+C` has a good chance of copying correctly in a terminal with no layer 3
-at all. That's a cushion, not a guarantee. **Test it in your terminals first
-thing**; if it fails there, that terminal needs an `app.conf` section and
-therefore a working GNOME extension.
+binds both spellings, so `Cmd+C` copies in GUI apps while `Ctrl+C` stays SIGINT.
+
+**This does not reach terminals.** Ptyxis ignores both Insert forms as
+accelerators -- rebinding `copy-clipboard` to `<ctrl>Insert` was tried and does
+not work. So in a terminal the clipboard is `Ctrl+Shift+C`/`V`, and there is no
+`Cmd` spelling for it without Layer 3.
 
 **`Super+Q` is app-dependent.** `Ctrl+Q` is a convention, not a guarantee, and
 some apps implement no quit accelerator. `Alt+F4` remains the reliable close.
@@ -182,7 +186,7 @@ behaviour.
 
 ## Untested
 
-- Whether Ptyxis and foot accept `Ctrl+Insert`/`Shift+Insert`.
+- Whether foot accepts `Ctrl+Insert`/`Shift+Insert`. Ptyxis does not.
 - Whether keyd's GNOME extension runs on GNOME 50 -- it declares support only
   through 49.
 - Electron/Chromium apps handle accelerators idiosyncratically; VS Code,
