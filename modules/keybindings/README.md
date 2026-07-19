@@ -108,6 +108,20 @@ macOS-shaped by default:
   Select-all wins -- it's used hundreds of times a day -- so the app grid moves
   to `Super+Shift+Space`. Spotlight and Launchpad, tidily enough.
 
+`gsettings.sh` also moves two Ptyxis accelerators onto the bare-Ctrl spellings
+the mac layer emits, so `Cmd+T` and `Cmd+N` work in the terminal without Layer 3:
+
+| Ptyxis action | Was | Now | Why it is safe |
+| --- | --- | --- | --- |
+| `new-tab` | `Ctrl+Shift+T` | `Ctrl+T` | costs readline's transpose-chars |
+| `new-window` | `Ctrl+Shift+N` | `Ctrl+N` | free -- the nav layer eats physical `Ctrl+N` |
+| `close-tab` | `Ctrl+Shift+W` | *unchanged* | `Ctrl+W` is still delete-word in the shell |
+
+`Ctrl+N` is the clean case: the nav layer consumes physical `Ctrl+N` and emits
+`Down`, so only `Cmd+N` can produce a real `Ctrl+N`. `close-tab` is deliberately
+left alone -- `w` is not in the nav layer, so binding it would close a tab every
+time a word is erased mid-command.
+
 The rest of the script re-asserts the stock defaults, which is a no-op on a
 fresh install and a convergence step on a machine with old customizations.
 

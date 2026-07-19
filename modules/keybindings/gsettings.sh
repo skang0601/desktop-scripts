@@ -24,6 +24,22 @@ echo "==> MacEmacs gtk-key-theme for kill/yank in GTK3 text fields"
 # claims. install.sh links it into ~/.themes.
 gsettings set org.gnome.desktop.interface gtk-key-theme 'MacEmacs'
 
+echo "==> Ptyxis: Cmd+T new tab, Cmd+N new window"
+# The mac layer emits Ctrl+T and Ctrl+N, and app.conf cannot help here -- it
+# needs keyd-application-mapper, which has no working GNOME extension on
+# Shell 50. Moving the terminal's own accelerators onto the bare-Ctrl spellings
+# gets Cmd+T and Cmd+N working with no Layer 3 at all.
+#
+# Ctrl+N is free by construction: the nav layer consumes physical Ctrl+N and
+# emits Down, so only Cmd+N can produce a real Ctrl+N. Ctrl+T costs readline's
+# transpose-chars, which is a cheap trade.
+#
+# close-tab deliberately stays on Ctrl+Shift+W. `w` is not in the nav layer, so
+# physical Ctrl+W still reaches the shell as delete-word-backward -- binding it
+# to close-tab would destroy a tab every time a word is erased mid-command.
+gsettings set org.gnome.Ptyxis.Shortcuts new-tab '<ctrl>t'
+gsettings set org.gnome.Ptyxis.Shortcuts new-window '<ctrl>n'
+
 echo "==> re-asserting stock defaults so machines with old customizations converge"
 gsettings set org.gnome.desktop.wm.keybindings switch-applications "['<Super>Tab', '<Alt>Tab']"
 gsettings set org.gnome.desktop.wm.keybindings switch-applications-backward "['<Shift><Super>Tab', '<Shift><Alt>Tab']"
