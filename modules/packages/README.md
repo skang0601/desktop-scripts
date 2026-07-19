@@ -18,6 +18,7 @@ Apps and tooling, installed only when missing.
 | go | brew / dnf | Fedora calls it `golang` |
 | zig | brew / dnf | |
 | claude-code | vendor installer | lands in `~/.local/bin`, no root |
+| claude-desktop | official apt repo, in a distrobox | Anthropic ship Debian/Ubuntu only |
 | steam | Flatpak | preinstalled on Bazzite, so usually a no-op |
 | jetbrains-toolbox | tarball | bootstraps to `~/.local/bin`, then self-updates |
 
