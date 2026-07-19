@@ -32,7 +32,8 @@ install_keyd() {
     echo "==> atomic system detected (ostree)"
     # dnf5 manages the repo file only; it does not layer onto the running host.
     if command -v dnf5 >/dev/null; then
-      sudo dnf5 copr enable -y "$COPR"
+      # -y is a dnf5 global option and must precede the subcommand.
+      sudo dnf5 -y copr enable "$COPR"
     else
       sudo curl -fsSL -o "/etc/yum.repos.d/_copr_${COPR/\//-}.repo" \
         "https://copr.fedorainfracloud.org/coprs/$COPR/repo/fedora-$(rpm -E %fedora)/${COPR/\//-}-fedora-$(rpm -E %fedora).repo"
@@ -42,7 +43,8 @@ install_keyd() {
     echo "    note: layered packages can pause image updates or block a rebase"
     echo "    if a future image conflicts. keyd needs root-level evdev access,"
     echo "    so Flatpak/Homebrew are not alternatives."
-    sudo rpm-ostree install -y keyd
+    # rpm-ostree install does not prompt, and -y is not portable across versions.
+    sudo rpm-ostree install keyd
 
     echo
     echo "!! REBOOT REQUIRED. Then re-run this script to finish configuration."

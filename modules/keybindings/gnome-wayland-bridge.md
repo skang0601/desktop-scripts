@@ -68,6 +68,9 @@ tail -f ~/.config/keyd/app.log
 declares `"shell-version": ["45","46","47","48","49"]`. GNOME **50 is not
 listed**, so on GNOME 50+ it will be flagged incompatible and refuse to load.
 
+Bazzite currently builds on Fedora 44, which ships GNOME 50 -- so this applies
+there too, not only on Fedora Workstation.
+
 That's a declaration, not necessarily a real incompatibility. Two workarounds:
 
 ```sh
