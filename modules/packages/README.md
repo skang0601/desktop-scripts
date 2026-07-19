@@ -13,8 +13,7 @@ Apps and tooling, installed only when missing.
 | App | Method | Notes |
 | --- | --- | --- |
 | 1password | Flatpak | Flathub listing is vendor-verified |
-| doom-emacs | git clone | pulls in emacs, ripgrep and fd first |
-| emacs | brew / dnf | native, not Flatpak -- see below |
+| emacs | brew / dnf | native, not Flatpak; includes Doom and its config |
 | go | brew / dnf | Fedora calls it `golang` |
 | zig | brew / dnf | |
 | claude-code | vendor installer | lands in `~/.local/bin`, no root |
@@ -52,8 +51,7 @@ app_install() { install_cli ripgrep rg; }   # (fedora_name, brew_name)
 is sourced in its own subshell, so definitions can't leak between apps.
 
 Files run in filename order. An app that needs another one first calls
-`require_app <name>` rather than relying on that order -- `doom-emacs` does this
-for `emacs`, since it sorts earlier.
+`require_app <name>` rather than relying on that order.
 
 Write `app_check` against every location the app might already occupy, not just
 the one this script would install to. Doom, for instance, lives at
@@ -66,3 +64,27 @@ Helpers available: `install_cli`, `install_flatpak`, `flatpak_installed` from
 Anything doing more than a simple command -- pipes, redirects, heredocs -- must
 handle `--dry-run` itself with an explicit `if dry; then ... fi`, or the dry-run
 output will lie about what it does.
+
+## Doom Emacs
+
+`emacs` installs Emacs, Doom, Doom's dependencies, and the tracked config in
+`doom/`, which is symlinked into place so edits land in the repo.
+
+Dependencies come from the modules enabled in `doom/init.el`: `git`, `ripgrep`
+and `fd` for `:completion` and `:tools lookup`, and `shellcheck` for
+`:checkers syntax` against `:lang sh`. Adding a module may add a dependency --
+`doom doctor` will say so.
+
+Path layout is a mess of Doom's own history and is detected rather than forced:
+
+| | current | legacy |
+| --- | --- | --- |
+| Doom | `~/.config/emacs` | `~/.emacs.d` |
+| config | `~/.config/doom` | `~/.doom.d` |
+
+The legacy paths win when both exist. A fresh install gets the current layout; a
+machine already using the legacy one keeps it, since relocating a working Doom
+is not this script's business. Any real config directory found in the way is
+renamed to `.bak` before the symlink goes in.
+
+`init.elc` is a build artifact of `doom sync` and is not tracked.

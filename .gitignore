@@ -3,3 +3,6 @@
 *.orig
 .DS_Store
 local/
+
+# Doom regenerates this from init.el on `doom sync`.
+init.elc
