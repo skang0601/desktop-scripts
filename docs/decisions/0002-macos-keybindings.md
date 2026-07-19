@@ -82,6 +82,20 @@ they are collapsed by construction, and only keyd -- upstream of the collapse --
 can tell them apart. The theme is also GTK3-only, so it is inert in the GTK4
 apps that make up most of GNOME 49.
 
+**Text editing comes from a custom gtk-key-theme, not the nav layer.**
+`Ctrl+D/H/K/U/Y` and the Alt word-wise set live in `gtk-keys/MacEmacs`, linked
+into `~/.themes`. GNOME's stock `Emacs` theme cannot be used: it binds
+`<ctrl>a/e/f/n/w`, exactly what the mac layer emits for `Cmd+A/E/F/N/W`, so it
+breaks select-all, find and close in every GTK3 text field. `MacEmacs` binds
+only keys neither keyd layer claims.
+
+Doing it in the theme rather than in keyd removes the Layer 3 dependency
+entirely: the selectors match `entry` and `textview`, and a terminal draws in a
+VTE widget, so `Ctrl+D` stays EOF in a shell with no per-app exemption. The
+price is reach -- GTK4 dropped key themes, so this covers GTK3 apps only, and
+Flatpak apps need `~/.themes` mounted. Motion keys stay in keyd, where they
+work in every toolkit.
+
 **The `nav` layer holds only keys that are safe in a terminal without Layer 3.**
 `a`, `e`, `b`, `f`, `p`, `n` become Home, End and the arrows. `d`, `h`, `k`,
 `w`, `u` and `y` stay out: they are EOF and readline editing, and a terminal

@@ -63,6 +63,31 @@ terminal only escapes the layer through `app.conf` -- which needs layer 3
 running. Everything in the layer has to be survivable in a terminal when that
 daemon is down, and `Home` and the arrows are; `Delete` is not.
 
+Text editing in GTK3 text fields (`gtk-keys/MacEmacs`):
+
+| Key | Action |
+| --- | --- |
+| `Ctrl+D` / `Ctrl+H` | delete char forward / back |
+| `Ctrl+K` / `Ctrl+U` | kill to end / start of line |
+| `Ctrl+Y` | yank (paste) |
+| `Alt+B` / `Alt+F` | word back / forward |
+| `Alt+D` / `Alt+Backspace` | delete word forward / back |
+
+A **custom** key theme, not GNOME's stock `Emacs` one. Stock `Emacs` binds
+`<ctrl>a/e/f/n/w`, which is precisely what the mac layer emits for
+`Cmd+A/E/F/N/W`, so setting it breaks select-all, find and close in every GTK3
+text field. `MacEmacs` binds only keys neither keyd layer claims.
+
+It needs no terminal exemption: the selectors match `entry` and `textview`, and
+a terminal draws in a VTE widget, so `Ctrl+D` stays EOF in a shell. That is why
+these keys live here rather than in the nav layer, which would need a working
+`keyd-application-mapper` to keep clear of terminals.
+
+The limit is that **GTK4 dropped key themes**, so this reaches GTK3 apps only --
+Firefox among them, which is the point. GTK4 apps get the nav layer's motion
+keys and nothing more. Flatpak apps additionally need `~/.themes` mounted;
+`install.sh` sets that override.
+
 Left out of the keyd layer so GNOME can keep them -- most are already
 macOS-shaped by default:
 
@@ -92,6 +117,7 @@ fresh install and a convergence step on a machine with old customizations.
 | --- | --- |
 | `default.conf` | `/etc/keyd/default.conf` |
 | `app.conf` | `~/.config/keyd/app.conf` |
+| `gtk-keys/MacEmacs/` | `~/.themes/MacEmacs` (symlink) |
 | `local-overrides.quirks` | `/etc/libinput/local-overrides.quirks` |
 | `gsettings.sh` | run, not installed |
 

@@ -108,6 +108,17 @@ run sudo keyd reload
 say "installing user app.conf"
 run install -Dm644 "$MODULE/app.conf" "$HOME/.config/keyd/app.conf"
 
+say "linking the MacEmacs gtk-key-theme"
+link_config "$MODULE/gtk-keys/MacEmacs" "$HOME/.themes/MacEmacs"
+
+# Flatpak apps cannot see ~/.themes unless told to, and Firefox is the app this
+# theme exists for: it is GTK3, so the theme applies, but the sandbox hides it
+# without this.
+if have flatpak; then
+  say "granting flatpak apps read access to ~/.themes"
+  run flatpak override --user --filesystem="$HOME/.themes:ro"
+fi
+
 if ! id -nG "$USER" | grep -qw keyd; then
   say "adding $USER to the keyd group (needed for keyd-application-mapper)"
   run sudo usermod -aG keyd "$USER"
