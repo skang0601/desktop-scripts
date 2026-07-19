@@ -22,9 +22,14 @@ names -- and runs each module's `install.sh` in order. With no host file it runs
 everything and tells you it did. Every installer is idempotent, so re-running
 after adding a module is the normal way to work.
 
+Note that Fedora leaves the hostname unset, falling back to `fedora` for every
+such machine, so set one per install or pass `--host`. See
+[hosts/](hosts/README.md).
+
 ```sh
 ./bootstrap.sh --list          # what's available and what this host enables
 ./bootstrap.sh --dry-run       # print every command, change nothing
+./bootstrap.sh --host bazzite  # pick a profile explicitly
 ./bootstrap.sh keybindings     # run one module, ignoring the host file
 ```
 

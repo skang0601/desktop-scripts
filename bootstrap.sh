@@ -5,11 +5,11 @@
 #   ./bootstrap.sh --list       # show what's available and what's enabled
 #   ./bootstrap.sh --dry-run    # show every command, change nothing
 #   ./bootstrap.sh keybindings  # run specific modules, ignoring the host file
+#   ./bootstrap.sh --host work  # use hosts/work.modules regardless of hostname
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$REPO/lib/common.sh"
-HOSTFILE="$REPO/hosts/$(hostname).modules"
 
 available() { find "$REPO/modules" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort; }
 
@@ -22,23 +22,32 @@ enabled() {
 }
 
 ARGS=()
-for a in "$@"; do
-  case "$a" in
+HOST=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --dry-run) DRY_RUN=1; export DRY_RUN ;;
     --list) LIST=1 ;;
-    -*) warn "unknown option: $a"; exit 2 ;;
-    *) ARGS+=("$a") ;;
+    --host) HOST="${2:?--host needs a name}"; shift ;;
+    --host=*) HOST="${1#*=}" ;;
+    -*) warn "unknown option: $1"; exit 2 ;;
+    *) ARGS+=("$1") ;;
   esac
+  shift
 done
+
+# Hostname is a weak identifier: Fedora leaves /etc/hostname empty and falls
+# back to DEFAULT_HOSTNAME from /etc/os-release, so unrelated machines commonly
+# all answer "fedora". --host exists to say which profile you actually mean.
+HOSTFILE="$REPO/hosts/${HOST:-$(hostname)}.modules"
 
 if [[ -n "${LIST:-}" ]]; then
   echo "available modules:"
   available | sed 's/^/  /'
   echo
   if [[ -f "$HOSTFILE" ]]; then
-    echo "enabled on $(hostname) (via hosts/$(hostname).modules):"
+    echo "enabled via $(basename "$HOSTFILE"):"
   else
-    echo "no hosts/$(hostname).modules -- everything is enabled by default:"
+    echo "no $(basename "$HOSTFILE") -- everything is enabled by default:"
   fi
   enabled | sed 's/^/  /'
   exit 0
@@ -49,7 +58,7 @@ if [[ ${#ARGS[@]} -gt 0 ]]; then
 else
   mapfile -t MODULES < <(enabled)
   [[ -f "$HOSTFILE" ]] \
-    || echo "note: no hosts/$(hostname).modules, running everything"
+    || echo "note: no $(basename "$HOSTFILE"), running everything"
 fi
 
 for m in "${MODULES[@]}"; do

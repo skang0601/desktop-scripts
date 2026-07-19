@@ -1,0 +1,13 @@
+# bazzite -- primary desktop, Bazzite (Fedora Atomic, GNOME)
+#
+# Requires the static hostname to actually be set; Fedora ships /etc/hostname
+# empty and falls back to DEFAULT_HOSTNAME from /etc/os-release:
+#     sudo hostnamectl set-hostname bazzite
+# Otherwise this file is never found and bootstrap.sh runs everything anyway,
+# which for this host happens to be the same thing.
+
+keybindings
+packages
+shell
+git
+ssh
