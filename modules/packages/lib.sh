@@ -35,3 +35,11 @@ install_flatpak() {
 flatpak_installed() {
   flatpak info "$1" >/dev/null 2>&1
 }
+
+# Install another app.d entry on demand. apps.d runs in filename order, so an
+# app that depends on another cannot rely on ordering alone.
+require_app() {
+  local name="$1"
+  ( source "$MODULE/apps.d/$name.sh"
+    app_check || { say "installing dependency $APP_NAME"; app_install; } )
+}

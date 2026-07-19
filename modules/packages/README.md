@@ -12,6 +12,8 @@ Apps and tooling, installed only when missing.
 
 | App | Method | Notes |
 | --- | --- | --- |
+| 1password | Flatpak | Flathub listing is vendor-verified |
+| doom-emacs | git clone | pulls in emacs, ripgrep and fd first |
 | emacs | brew / dnf | native, not Flatpak -- see below |
 | go | brew / dnf | Fedora calls it `golang` |
 | zig | brew / dnf | |
@@ -48,6 +50,14 @@ app_install() { install_cli ripgrep rg; }   # (fedora_name, brew_name)
 
 `app_check` gates the install, which is what makes re-running a no-op. Each file
 is sourced in its own subshell, so definitions can't leak between apps.
+
+Files run in filename order. An app that needs another one first calls
+`require_app <name>` rather than relying on that order -- `doom-emacs` does this
+for `emacs`, since it sorts earlier.
+
+Write `app_check` against every location the app might already occupy, not just
+the one this script would install to. Doom, for instance, lives at
+`~/.config/emacs` now but `~/.emacs.d` still shadows it.
 
 Helpers available: `install_cli`, `install_flatpak`, `flatpak_installed` from
 `lib.sh`; `have`, `run`, `dry`, `say`, `warn`, `is_atomic` from
