@@ -82,19 +82,24 @@ they are collapsed by construction, and only keyd -- upstream of the collapse --
 can tell them apart. The theme is also GTK3-only, so it is inert in the GTK4
 apps that make up most of GNOME 49.
 
-**Text editing comes from a custom gtk-key-theme, not the nav layer.**
-`Ctrl+D/H/K/U/Y` and the Alt word-wise set live in `gtk-keys/MacEmacs`, linked
-into `~/.themes`. GNOME's stock `Emacs` theme cannot be used: it binds
-`<ctrl>a/e/f/n/w`, exactly what the mac layer emits for `Cmd+A/E/F/N/W`, so it
-breaks select-all, find and close in every GTK3 text field. `MacEmacs` binds
-only keys neither keyd layer claims.
+**GTK key themes are a dead end; do not re-try them.** Two attempts, both
+rejected:
 
-Doing it in the theme rather than in keyd removes the Layer 3 dependency
-entirely: the selectors match `entry` and `textview`, and a terminal draws in a
-VTE widget, so `Ctrl+D` stays EOF in a shell with no per-app exemption. The
-price is reach -- GTK4 dropped key themes, so this covers GTK3 apps only, and
-Flatpak apps need `~/.themes` mounted. Motion keys stay in keyd, where they
-work in every toolkit.
+Stock `Emacs` binds `<ctrl>a/e/f/n/w`, exactly what the mac layer emits for
+Cmd+A/E/F/N/W. Once keyd has rewritten Cmd+A into a literal Ctrl+A nothing
+downstream can separate them, so the theme captures both and select-all, find
+and close break in every GTK3 text field.
+
+A custom theme binding only the keys neither layer claims (`d/h/k/u/y`) avoids
+that collision and still achieves nothing, because there is nothing left to
+apply it to. GTK4 dropped key themes and this desktop is GTK4 throughout.
+Firefox appears to be the exception -- it links GTK3 -- and is not one: it draws
+its own text fields rather than using GtkEntry/GtkTextView, so the `entry` and
+`textview` selectors match nothing, and its own chrome accelerators own Ctrl+D
+(bookmark), Ctrl+K (search) and Ctrl+U (view-source) regardless of any theme.
+
+Emacs-style editing therefore lives in the nav layer only. Ctrl+D/K/U/Y are
+available in a terminal, from the shell's own readline, and nowhere else.
 
 **The `nav` layer holds only keys that are safe in a terminal without Layer 3.**
 `a`, `e`, `b`, `f`, `p`, `n` become Home, End and the arrows. `d`, `h`, `k`,

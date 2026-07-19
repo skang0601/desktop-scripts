@@ -108,17 +108,6 @@ run sudo keyd reload
 say "installing user app.conf"
 run install -Dm644 "$MODULE/app.conf" "$HOME/.config/keyd/app.conf"
 
-say "linking the MacEmacs gtk-key-theme"
-link_config "$MODULE/gtk-keys/MacEmacs" "$HOME/.themes/MacEmacs"
-
-# Flatpak apps cannot see ~/.themes unless told to, and Firefox is the app this
-# theme exists for: it is GTK3, so the theme applies, but the sandbox hides it
-# without this.
-if have flatpak; then
-  say "granting flatpak apps read access to ~/.themes"
-  run flatpak override --user --filesystem="$HOME/.themes:ro"
-fi
-
 if ! id -nG "$USER" | grep -qw keyd; then
   say "adding $USER to the keyd group (needed for keyd-application-mapper)"
   run sudo usermod -aG keyd "$USER"
@@ -133,6 +122,8 @@ done.
   next        ./gsettings.sh           # GNOME shortcut changes
   optional    gnome-wayland-bridge.md  # per-app terminal behaviour
 
-first thing to test: open your terminals and confirm Ctrl+Insert copies and
-Shift+Insert pastes. If they don't, those terminals need the Layer 3 bridge.
+first thing to test: tap Super for the overview, then Cmd+C in a GUI app.
+
+in a terminal the clipboard is Ctrl+Shift+C/V, pressed physically -- Ptyxis
+ignores the Insert forms the mac layer emits, so Cmd+C does not copy there.
 EOF

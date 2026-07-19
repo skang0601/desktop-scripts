@@ -15,14 +15,22 @@ echo "==> Super+Space -> overview"
 # the Super tap (overlay-key). This is an addition, not a restored default.
 gsettings set org.gnome.shell.keybindings toggle-overview "['<Super>space']"
 
-echo "==> MacEmacs gtk-key-theme for kill/yank in GTK3 text fields"
-# Not stock 'Emacs'. That theme binds <ctrl>a/e/f/n/w, and the mac layer
-# delivers Cmd+A/E/F/N/W as exactly those keystrokes -- once keyd has rewritten
-# Cmd+A into a literal Ctrl+A nothing downstream can separate them, so stock
-# Emacs breaks select-all, find and close in every GTK3 text field. MacEmacs
-# binds only Ctrl+D/H/K/U/Y and the Alt word-wise set, which neither keyd layer
-# claims. install.sh links it into ~/.themes.
-gsettings set org.gnome.desktop.interface gtk-key-theme 'MacEmacs'
+echo "==> gtk-key-theme stays Default; GTK key themes are a dead end here"
+# Considered and rejected twice, so don't reach for it a third time.
+#
+# Stock 'Emacs' binds <ctrl>a/e/f/n/w, exactly what the mac layer emits for
+# Cmd+A/E/F/N/W, so it breaks select-all, find and close.
+#
+# A custom theme binding only the free keys (d/h/k/u/y) avoids that collision
+# and still does nothing useful, because there is nothing left to apply it to:
+# GTK4 dropped key themes, and this desktop is GTK4 throughout. Firefox is the
+# apparent exception and is not one -- it links GTK3 but draws its own text
+# fields, so the `entry` and `textview` selectors match nothing, and its own
+# accelerators own Ctrl+D, Ctrl+K and Ctrl+U regardless.
+#
+# Emacs-style motion lives in keyd's nav layer instead, which works in every
+# toolkit. A reset rather than `set Default`, to clear the override outright.
+gsettings reset org.gnome.desktop.interface gtk-key-theme
 
 echo "==> Ptyxis: Cmd+A, Cmd+F, Cmd+T, Cmd+N"
 # The mac layer emits Ctrl+T and Ctrl+N, and app.conf cannot help here -- it
