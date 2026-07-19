@@ -72,13 +72,28 @@ install_keyd() {
 install_keyd
 check_input_remapper
 
+say "validating default.conf"
+# The repo copy, not the installed one: checking after `install` leaves a
+# broken config in /etc when it fails.
+if dry; then
+  printf '    [dry-run] keyd check %s\n' "$MODULE/default.conf"
+else
+  # keyd exits nonzero only on a parse error. An unknown key or action is a
+  # warning on stdout with exit 0, so a whole layer of bindings can be dropped
+  # while the check "passes" -- which is exactly how the trailing-comment form
+  # went unnoticed. Any WARNING is fatal here.
+  check_out="$(keyd check "$MODULE/default.conf" 2>&1)" || true
+  printf '%s\n' "$check_out"
+  if grep -q WARNING <<<"$check_out"; then
+    warn "default.conf has invalid bindings; not installing it"
+    exit 1
+  fi
+fi
+
 say "installing /etc/keyd/default.conf"
 # On ostree systems /etc is writable, and files with no /usr/etc counterpart
 # survive upgrades and rebases via the 3-way merge.
 run sudo install -Dm644 "$MODULE/default.conf" /etc/keyd/default.conf
-
-say "validating config before touching the running daemon"
-run sudo keyd check /etc/keyd/default.conf
 
 say "installing libinput touchpad quirk"
 run sudo install -Dm644 "$MODULE/local-overrides.quirks" /etc/libinput/local-overrides.quirks

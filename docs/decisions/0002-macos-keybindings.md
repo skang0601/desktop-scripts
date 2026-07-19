@@ -16,13 +16,19 @@ Environment is GNOME on Wayland. The distro is not load-bearing; GNOME is.
 
 ## The load-bearing constraint
 
-**Physical Ctrl is never remapped.** Ctrl+C is SIGINT in every terminal, ssh
-session, TUI and REPL; Ctrl+A/E/K keep editing lines. Everything else here is
-negotiable, this is not.
+**Ctrl+C is SIGINT in every terminal, ssh session, TUI and REPL, and nothing
+here may endanger that.** Everything else is negotiable, this is not.
 
-This is also what rules out the obvious approach. Swapping Ctrl and Super at the
+This is what rules out the obvious approach. Swapping Ctrl and Super at the
 hardware level reproduces the macOS *layout*, but destroys the property that
 makes the layout worth having.
+
+The constraint governs Ctrl+C and the shell's editing keys, not the Ctrl
+modifier wholesale. Ctrl carries an emacs navigation layer (see Layer 1),
+because "Ctrl owns Emacs line editing" is half of the split this ADR exists to
+recover -- a Ctrl that does nothing is not the macOS behaviour, just an absence.
+The layer is scoped so the constraint holds by construction: `[nav:C]` leaves
+every unlisted key carrying Ctrl, so Ctrl+C is never a mapped key at all.
 
 ## Super is not Cmd for free
 
@@ -54,14 +60,43 @@ small C daemon with an INI config that diffs cleanly in git.
 
 ```
 [main]
-meta = layer(mac)
+meta    = layer(mac)
+control = layer(nav)
 
 [mac:M]
 c = C-insert
 ...
+
+[nav:C]
+a = home
+b = left
+...
 ```
 
-Three details of keyd 2.6.0 that the config depends on:
+**Navigation belongs in keyd, not in GNOME's Emacs `gtk-key-theme`.** The theme
+is the obvious route and cannot work: by the time a key reaches GTK, the `mac`
+layer has already rewritten `Super+A` into a literal `Ctrl+A`, so the theme
+captures both spellings and `Super+A` stops selecting all. Cmd and Ctrl are
+distinguishable on macOS because they are genuinely different modifiers; here
+they are collapsed by construction, and only keyd -- upstream of the collapse --
+can tell them apart. The theme is also GTK3-only, so it is inert in the GTK4
+apps that make up most of GNOME 49.
+
+**The `nav` layer holds only keys that are safe in a terminal without Layer 3.**
+`a`, `e`, `b`, `f`, `p`, `n` become Home, End and the arrows. `d`, `h`, `k`,
+`w`, `u` and `y` stay out: they are EOF and readline editing, and a terminal
+escapes the layer only via `app.conf`, which depends on the fragile Layer 3.
+Anything in the layer has to be survivable when that daemon is down. Home and
+the arrows are; Delete is not.
+
+Four details of keyd 2.6.0 that the config depends on:
+
+**Comments cannot follow a binding.** keyd has no trailing-comment syntax and
+takes the rest of the line as the action, so `c = C-insert  # copy` is an
+invalid action and the binding is dropped. `keyd check` calls this a `WARNING`
+and exits 0, so an entire layer can be inert while the config validates. The
+installer treats any warning as fatal and checks the repo copy before installing
+it, so a config that lost its bindings this way cannot reach `/etc`.
 
 **`layer()` is the only workable form.** keyd special-cases an isolated tap of a
 layer key and emits a clean meta down/up pair, so tap-Super still opens
@@ -148,7 +183,14 @@ in a terminal with no Layer 3 at all. Treat that as a cushion, not a guarantee:
 
 ## Consequences
 
-- Ctrl reflexes and remote ssh sessions are untouched.
+- Ctrl+C, EOF and readline editing are untouched, in local terminals and remote
+  ssh sessions alike.
+- Ctrl+A/E/B/F/P/N no longer reach applications that bound them to something
+  else. In a shell they are the readline motions they already were; elsewhere
+  Ctrl+A most commonly meant select-all, which now lives on Super+A only.
+- Terminals rely on Layer 3 to get Ctrl+A/E/B/F/P/N back verbatim. Without it
+  they still navigate, which is survivable, but a tmux prefix on Ctrl+A needs
+  either the extension working or that key dropped from the layer.
 - Layer 1 alone is a usable setup. Layers 2-3 are refinements, and the design
   degrades in that order rather than collapsing.
 - A key added to the layer is a GNOME Super binding removed. That trade is made

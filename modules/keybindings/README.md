@@ -14,8 +14,11 @@ this is the operator's view.
 
 Cmd owns GUI actions, Ctrl owns Unix semantics -- the split Linux collapsed.
 
-- **Physical Ctrl is never remapped.** `Ctrl+C` is SIGINT in every terminal, ssh
-  session and REPL. This is the constraint the design is built around.
+- **`Ctrl+C` is SIGINT, everywhere, always.** In every terminal, ssh session and
+  REPL. This is the constraint the design is built around.
+- **Ctrl carries an emacs navigation layer.** `Ctrl+A`/`E` are line start/end and
+  `Ctrl+B`/`F`/`P`/`N` are the arrows, in every app. Only those six keys are
+  claimed; everything else keeps its Ctrl meaning untouched.
 - **Super carries a translation layer.** `Super+C` is rewritten to the Ctrl-based
   combo apps actually listen for. Super doesn't become Cmd for free -- GTK, Qt
   and Electron hardcode Ctrl, so the rewrite is the whole job.
@@ -38,6 +41,27 @@ Translated by keyd (`default.conf`):
 
 Extra modifiers pass through, so `Super+Shift+T` correctly becomes
 `Ctrl+Shift+T`, not `Ctrl+T`.
+
+Navigation on physical Ctrl (`default.conf`, the `nav` layer):
+
+| Key | Emits | |
+| --- | --- | --- |
+| `Ctrl+A` / `E` | `Home` / `End` | line start / end |
+| `Ctrl+B` / `F` | `Left` / `Right` | back / forward one char |
+| `Ctrl+P` / `N` | `Up` / `Down` | previous / next line |
+
+This is the other half of the macOS split: Cmd does the editing verbs, Ctrl
+moves the cursor. GNOME's Emacs `gtk-key-theme` cannot do this job -- by the
+time a key reaches GTK, `Super+A` has already become a literal `Ctrl+A`, so the
+theme would capture both and `Super+A` would stop selecting all. The theme also
+ships only a `gtk-3.0` set, so it is inert in GTK4 apps. Doing it in keyd keeps
+the two apart and works everywhere, GTK4 and Electron included.
+
+`Ctrl+D`, `Ctrl+H`, `Ctrl+K`, `Ctrl+W`, `Ctrl+U` and `Ctrl+Y` are deliberately
+**not** in the layer. They are EOF and readline editing in a shell, and a
+terminal only escapes the layer through `app.conf` -- which needs layer 3
+running. Everything in the layer has to be survivable in a terminal when that
+daemon is down, and `Home` and the arrows are; `Delete` is not.
 
 Left out of the keyd layer so GNOME can keep them -- most are already
 macOS-shaped by default:
@@ -77,8 +101,9 @@ fresh install and a convergence step on a machine with old customizations.
    server. Works on its own; this alone is a usable setup.
 2. **GNOME** (`gsettings.sh`) -- window management. Mostly already correct by
    default.
-3. **keyd-application-mapper** (`app.conf`) -- per-application behaviour,
-   chiefly the terminal exception. Optional, and the fragile one. See
+3. **keyd-application-mapper** (`app.conf`) -- per-application behaviour: the
+   terminal clipboard exception, and handing the `nav` keys back to readline in
+   Ptyxis and foot. Optional, and the fragile one. See
    [gnome-wayland-bridge.md](gnome-wayland-bridge.md).
 
 The design degrades in that order rather than collapsing.
@@ -94,6 +119,12 @@ therefore a working GNOME extension.
 
 **`Super+Q` is app-dependent.** `Ctrl+Q` is a convention, not a guarantee, and
 some apps implement no quit accelerator. `Alt+F4` remains the reliable close.
+
+**keyd has no trailing-comment syntax.** `c = C-insert  # copy` takes the rest
+of the line as the action, so the binding is invalid and gets dropped. Comments
+belong on their own line above a binding. `keyd check` reports this as a
+`WARNING` and still exits 0, so a config can lose an entire layer and look
+fine; `install.sh` treats any warning as fatal for that reason.
 
 ## Debugging
 
