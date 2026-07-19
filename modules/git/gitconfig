@@ -1,0 +1,53 @@
+# Tracked global git config -> ~/.gitconfig
+# `git config --global ...` writes here, so changes land in the repo.
+
+[user]
+	name = skang0601
+	email = skang0601@gmail.com
+
+[init]
+	defaultBranch = main
+
+[core]
+	editor = emacsclient -nw -a vi
+
+[pull]
+	rebase = true
+[rebase]
+	autoStash = true
+[fetch]
+	prune = true
+[push]
+	# Stop `git push` on a new branch from failing with a --set-upstream hint.
+	autoSetupRemote = true
+
+[diff]
+	algorithm = histogram
+	# Distinguish moved lines from added/removed ones.
+	colorMoved = default
+[merge]
+	# zdiff3 shows the common ancestor in conflicts, which makes it possible to
+	# see what each side changed rather than guessing.
+	conflictstyle = zdiff3
+[rerere]
+	# Remember conflict resolutions and reapply them; pays for itself on any
+	# long-lived rebase.
+	enabled = true
+
+[alias]
+	s = status -sb
+	lg = log --oneline --graph --decorate
+	last = log -1 --stat
+	unstage = restore --staged
+
+# SSH commit signing via the 1Password agent. Uncomment and set signingkey to
+# the *public* key 1Password holds (op item get "..." --fields "public key"),
+# then add it to GitHub as a signing key.
+# [user]
+# 	signingkey = ssh-ed25519 AAAA...
+# [gpg]
+# 	format = ssh
+# [gpg "ssh"]
+# 	program = /usr/bin/op-ssh-sign
+# [commit]
+# 	gpgsign = true

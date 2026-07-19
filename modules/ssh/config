@@ -1,0 +1,12 @@
+# Tracked ssh client config -> ~/.ssh/config
+#
+# Keys are not on disk. 1Password's SSH agent holds them and answers over the
+# socket below, which is why there is no IdentityFile anywhere here. The agent
+# is a feature of the 1Password desktop app, not the `op` CLI, so the desktop
+# app must be installed and unlocked for git-over-ssh to work.
+
+Host *
+	IdentityAgent ~/.1password/agent.sock
+	# Drop dead connections rather than hanging until TCP gives up.
+	ServerAliveInterval 60
+	ServerAliveCountMax 3
