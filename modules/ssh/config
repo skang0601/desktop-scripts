@@ -1,12 +1,27 @@
 # Tracked ssh client config -> ~/.ssh/config
 #
-# Keys are not on disk. 1Password's SSH agent holds them and answers over the
-# socket below, which is why there is no IdentityFile anywhere here. The agent
-# is a feature of the 1Password desktop app, not the `op` CLI, so the desktop
-# app must be installed and unlocked for git-over-ssh to work.
+# Two ways to hold a key, in preference order. 1Password's SSH agent is the
+# intended one: the key never touches the disk. It is a feature of the desktop
+# app, not the `op` CLI, so the app must be installed and unlocked -- and it
+# currently cannot be installed on ostree systems at all (see
+# modules/packages/apps.d/1password.sh). An on-disk key is the fallback for
+# machines in that state.
+
+# ssh_config is first-obtained-wins, so this has to precede `Host *` for the
+# agent to beat the on-disk key. The test keeps a stale IdentityAgent from
+# breaking auth outright: pointing at a socket that isn't there makes ssh fail
+# rather than move on to the next identity.
+Match exec "test -S %d/.1password/agent.sock"
+	IdentityAgent ~/.1password/agent.sock
 
 Host *
-	IdentityAgent ~/.1password/agent.sock
+	# Only consulted when the agent above didn't answer. ssh would find this
+	# path on its own, but naming it keeps the fallback visible to a reader.
+	# No IdentitiesOnly: it limits ssh to keys with a matching file on disk,
+	# and the 1Password agent's keys have none, so it would break the path
+	# above rather than tighten it.
+	IdentityFile ~/.ssh/id_rsa
+
 	# Drop dead connections rather than hanging until TCP gives up.
 	ServerAliveInterval 60
 	ServerAliveCountMax 3
