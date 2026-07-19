@@ -32,3 +32,23 @@ run_write_root() {
     sudo install -Dm"$mode" /dev/stdin "$dest"
   fi
 }
+
+# Symlink a repo file into place, preserving anything real already there.
+link_config() {
+  local src="$1" dest="$2"
+
+  if [[ -L "$dest" ]]; then
+    if [[ "$(readlink -f "$dest")" == "$(readlink -f "$src")" ]]; then
+      skip "$(basename "$dest")" "already linked"
+      return 0
+    fi
+    warn "$dest is a symlink elsewhere; replacing"
+    run rm "$dest"
+  elif [[ -e "$dest" ]]; then
+    warn "$dest exists; backing it up to $dest.bak"
+    run mv "$dest" "$dest.bak"
+  fi
+
+  run mkdir -p "$(dirname "$dest")"
+  run ln -s "$src" "$dest"
+}

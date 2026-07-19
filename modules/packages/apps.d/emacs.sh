@@ -41,7 +41,8 @@ app_install() {
     fresh=1
   fi
 
-  link_doom_config || return 1
+  # Tracked config, symlinked so edits land in the repo.
+  link_config "$MODULE/doom" "$(doomdir)" || return 1
 
   if (( fresh )); then
     # Interactive: asks about fonts and an env file.
@@ -51,23 +52,5 @@ app_install() {
     run "$(doom_bin)" sync
   fi
   say "run 'doom sync' after editing $MODULE/doom"
-}
-
-# Symlink the tracked config into place so edits land in the repo.
-link_doom_config() {
-  local target="$MODULE/doom" dest; dest="$(doomdir)"
-
-  if [[ -L "$dest" ]]; then
-    skip "doom config" "already linked"
-    return 0
-  fi
-
-  if [[ -e "$dest" ]]; then
-    local backup="$dest.bak"
-    warn "$dest is a real directory; backing it up to $backup"
-    run mv "$dest" "$backup"
-  fi
-
-  run mkdir -p "$(dirname "$dest")"
-  run ln -s "$target" "$dest"
+  say "the shell module puts Doom's bin/ on PATH"
 }

@@ -36,7 +36,8 @@ fresh machine is about to have done to it before committing.
 | Module | What it does |
 | --- | --- |
 | [`keybindings`](modules/keybindings/) | macOS-style Cmd/Ctrl split via keyd, plus the GNOME shortcut adjustments that go with it |
-| [`packages`](modules/packages/) | apps and tooling -- emacs, go, zig, claude-code, steam, jetbrains-toolbox -- installed only when missing |
+| [`packages`](modules/packages/) | apps and tooling -- emacs/Doom, go, zig, claude-code, steam, 1password, jetbrains-toolbox -- installed only when missing |
+| [`shell`](modules/shell/) | bash PATH and editor defaults |
 
 Each module owns its own config, installer and README. Adding one means creating
 `modules/<name>/install.sh` and listing it in the relevant host file -- there is
