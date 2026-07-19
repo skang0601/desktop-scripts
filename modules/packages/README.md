@@ -12,7 +12,8 @@ Apps and tooling, installed only when missing.
 
 | App | Method | Notes |
 | --- | --- | --- |
-| 1password | Flatpak | Flathub listing is vendor-verified |
+| 1password | 1Password's RPM repo | Flatpak cannot serve the SSH agent |
+| 1password-cli | 1Password's RPM repo | not on Flathub at all |
 | emacs | brew / dnf | native, not Flatpak; includes Doom and its config |
 | go | brew / dnf | Fedora calls it `golang` |
 | zig | brew / dnf | |
@@ -32,9 +33,19 @@ where layering costs a reboot and can block a rebase (ADR 0005):
 4. **Vendor installers** where nothing else is published, kept to `$HOME`.
 5. **`rpm-ostree` layering** only as a last resort, with a loud reboot warning.
 
-emacs is deliberately native rather than Flatpak: as a development editor it
-needs to reach compilers, LSP servers and toolchains that live outside the
-sandbox, and punching those through one by one is worse than the alternative.
+Two apps deliberately skip Flatpak:
+
+**emacs** -- as a development editor it needs to reach compilers, LSP servers
+and toolchains outside the sandbox, and punching those through one by one is
+worse than the alternative.
+
+**1password** -- the Flathub build is vendor-verified, but 1Password's docs
+state the SSH agent does not work under Flatpak, and the manifest confirms it:
+no `--filesystem=home`, and `$HOME` redirected into the sandbox, so
+`~/.1password/agent.sock` cannot appear on the host. The [ssh](../ssh) module
+depends on that socket for every git-over-ssh operation, so the Flatpak would
+break authentication outright. It layers on atomic systems instead -- one of the
+few cases that justifies it.
 
 ## Adding an app
 

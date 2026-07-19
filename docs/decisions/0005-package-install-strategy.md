@@ -41,8 +41,14 @@ access, so it layers. That is the case layering exists for.
 - Homebrew's Linux builds are less exercised than its macOS ones. If a formula
   misbehaves, the fallback is to install natively and let `app_check` find it.
 - GUI apps under Flatpak are sandboxed. That is usually fine and occasionally
-  is not, which is why emacs is installed natively instead: a development editor
-  has to reach compilers, LSP servers and toolchains outside the sandbox.
+  is not. emacs is native because a development editor has to reach compilers,
+  LSP servers and toolchains outside the sandbox. 1Password is native because
+  its SSH agent cannot cross the sandbox boundary at all -- the socket the ssh
+  module depends on would simply never appear on the host.
+- Sandbox limits are the thing to check before choosing Flatpak, and they are
+  not always visible from the app's description. The Flathub manifest's
+  `finish-args` is the authority: an app with no `--filesystem=home` cannot
+  write anywhere the rest of the system will see.
 - `app_check` tests for the *result* (is the binary there, is the Flatpak
   installed) rather than for a package name, so an app installed by some other
   means is correctly left alone.

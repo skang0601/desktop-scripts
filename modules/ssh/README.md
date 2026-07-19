@@ -18,6 +18,11 @@ Consequences worth knowing:
 - **The agent is a feature of the 1Password desktop app, not the `op` CLI.** The
   desktop app must be installed and unlocked for git-over-ssh to work; `op`
   alone is not enough.
+- **The Flatpak build cannot provide it.** 1Password's docs say the SSH agent
+  does not work under Flatpak or Snap, and the Flathub manifest confirms it --
+  no `--filesystem=home`, and `$HOME` redirected into the sandbox. The socket
+  path is hardcoded and not configurable, so there is no workaround. The
+  packages module installs the RPM instead.
 - Enable it in 1Password under **Settings > Developer > Use the SSH agent**. The
   socket only exists while the app is running.
 - `$SSH_AUTH_SOCK` usually points at gnome-keyring, which holds nothing here.
