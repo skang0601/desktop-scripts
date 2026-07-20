@@ -39,31 +39,22 @@ echo "==> gtk-key-theme stays Default; GTK key themes are a dead end here"
 # toolkit. A reset rather than `set Default`, to clear the override outright.
 gsettings reset org.gnome.desktop.interface gtk-key-theme
 
-echo "==> Ptyxis: Cmd+A, Cmd+F, Cmd+T, Cmd+N"
-# The mac layer emits Ctrl+T and Ctrl+N, and app.conf cannot help here -- it
-# needs keyd-application-mapper, which has no working GNOME extension on
-# Shell 50. Moving the terminal's own accelerators onto the bare-Ctrl spellings
-# gets Cmd+T and Cmd+N working with no Layer 3 at all.
+echo "==> Ptyxis: stock Ctrl+Shift accelerators, reached via Cmd by app.conf"
+# Ptyxis keeps its defaults and app.conf supplies the Cmd spellings, which is
+# only possible while keyd-application-mapper is running.
 #
-# Ctrl+N is free by construction: the nav layer consumes physical Ctrl+N and
-# emits Down, so only Cmd+N can produce a real Ctrl+N. Ctrl+T costs readline's
-# transpose-chars, which is a cheap trade.
-#
-# close-tab deliberately stays on Ctrl+Shift+W. `w` is not in the nav layer, so
-# physical Ctrl+W still reaches the shell as delete-word-backward -- binding it
-# to close-tab would destroy a tab every time a word is erased mid-command.
-#
-# Ctrl+A and Ctrl+F are free the same way Ctrl+N is: the nav layer turns the
-# physical keys into Home and Right, so only Cmd can produce the bare Ctrl
-# spelling. Ctrl+T is the one that costs something.
-gsettings set org.gnome.Ptyxis.Shortcuts select-all '<ctrl>a'
-gsettings set org.gnome.Ptyxis.Shortcuts search '<ctrl>f'
-gsettings set org.gnome.Ptyxis.Shortcuts new-tab '<ctrl>t'
-gsettings set org.gnome.Ptyxis.Shortcuts new-window '<ctrl>n'
+# Binding these to bare Ctrl instead would collide with the nav layer rather
+# than dodge it: app.conf hands Ctrl+A/E/B/F/P/N back to the shell inside a
+# terminal, so a bare-Ctrl accelerator here eats the key before readline or tmux
+# sees it -- Ctrl+A selects all instead of reaching the tmux prefix. Ctrl+T is
+# free for readline's transpose-chars for the same reason.
+gsettings reset org.gnome.Ptyxis.Shortcuts select-all
+gsettings reset org.gnome.Ptyxis.Shortcuts search
+gsettings reset org.gnome.Ptyxis.Shortcuts new-tab
+gsettings reset org.gnome.Ptyxis.Shortcuts new-window
 
-# copy/paste stay on Ctrl+Shift+C/V. Ptyxis does not accept Ctrl+Insert or
-# Shift+Insert as accelerators, which is what the mac layer emits for Cmd+C/V,
-# so there is no Cmd spelling for the terminal clipboard without Layer 3.
+# copy/paste are absent from the schema and handled internally by Ptyxis, so
+# Ctrl+Shift+C/V work without a binding here. app.conf maps Cmd+C/V onto them.
 
 echo "==> re-asserting stock defaults so machines with old customizations converge"
 gsettings set org.gnome.desktop.wm.keybindings switch-applications "['<Super>Tab', '<Alt>Tab']"
