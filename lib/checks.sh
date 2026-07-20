@@ -15,10 +15,15 @@ _record() {
     >>"$CHECK_RESULTS"
 }
 
-# fail is "this is broken now"; warn is "this works but will surprise you".
-check_ok()   { _record ok   "$@"; }
-check_warn() { _record warn "$@"; }
-check_fail() { _record fail "$@"; }
+# fail is "this is broken now"; warn is "this works but will surprise you";
+# blocked is "cannot be in the wanted state here, the reason is known, and
+# re-running changes nothing" -- the same distinction the packages module draws,
+# and the reason blocked does not count towards the exit status. A warning
+# nobody can action is noise, and noise is what makes a real one get ignored.
+check_ok()      { _record ok      "$@"; }
+check_warn()    { _record warn    "$@"; }
+check_fail()    { _record fail    "$@"; }
+check_blocked() { _record blocked "$@"; }
 
 # The repo is the source of truth for anything installed to a system path, so a
 # difference means the installed copy was edited in place -- which the module

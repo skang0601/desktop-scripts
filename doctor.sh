@@ -150,6 +150,7 @@ done
 
 count() { awk -F'\t' -v s="$1" '$1==s' "$CHECK_RESULTS" | wc -l; }
 N_OK="$(count ok)"; N_WARN="$(count warn)"; N_FAIL="$(count fail)"
+N_BLOCKED="$(count blocked)"
 
 json_escape() { local s="$1"; s="${s//\\/\\\\}"; s="${s//\"/\\\"}"; printf '%s' "$s"; }
 html_escape() {
@@ -161,7 +162,8 @@ html_escape() {
 render_json() {
   printf '{\n  "host": "%s",\n' "$(json_escape "$(hostname)")"
   printf '  "generated": "%s",\n' "$(date -Is)"
-  printf '  "summary": { "ok": %s, "warn": %s, "fail": %s },\n' "$N_OK" "$N_WARN" "$N_FAIL"
+  printf '  "summary": { "ok": %s, "warn": %s, "fail": %s, "blocked": %s },\n' \
+    "$N_OK" "$N_WARN" "$N_FAIL" "$N_BLOCKED"
   printf '  "checks": [\n'
   local first=1 status module label detail fix
   while IFS=$'\t' read -r status module label detail fix; do
@@ -181,16 +183,20 @@ render_text() {
     printf '\n==> %s\n' "$m"
     while IFS=$'\t' read -r status module label detail fix; do
       [[ "$module" == "$m" ]] || continue
-      case "$status" in
-        ok)   printf '  ok    %-26s %s\n' "$label" "$detail" ;;
-        warn) printf '  warn  %-26s %s\n' "$label" "$detail" ;;
-        fail) printf '  FAIL  %-26s %s\n' "$label" "$detail" ;;
-      esac
-      [[ -n "$fix" ]] && printf '        %-26s fix: %s\n' "" "$fix"
+      local tag="$status"
+      [[ "$status" == fail ]] && tag=FAIL
+      printf '  %-7s %-26s %s\n' "$tag" "$label" "$detail"
+      if [[ -n "$fix" ]]; then
+        local verb=fix
+        [[ "$status" == blocked ]] && verb=track
+        printf '  %-7s %-26s %s: %s\n' "" "" "$verb" "$fix"
+      fi
     done <"$CHECK_RESULTS"
   done
 
-  printf '\n%s ok, %s warning(s), %s failed\n' "$N_OK" "$N_WARN" "$N_FAIL"
+  printf '\n%s ok, %s warning(s), %s failed' "$N_OK" "$N_WARN" "$N_FAIL"
+  (( N_BLOCKED )) && printf ', %s blocked' "$N_BLOCKED"
+  printf '\n'
   (( N_FAIL )) && printf 're-run the module installer for anything failed above\n'
   return 0
 }
@@ -233,7 +239,8 @@ render_html() {
          align-items: baseline; }
   .row:last-child { border-bottom: 0; }
   .badge { font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-  .ok .badge { color: var(--ok); } .warn .badge { color: var(--warn); } .fail .badge { color: var(--fail); }
+  .ok .badge { color: var(--ok); } .warn .badge { color: var(--warn); }
+  .fail .badge { color: var(--fail); } .blocked .badge { color: var(--muted); }
   .label { font-weight: 500; }
   .detail { color: var(--muted); overflow-wrap: anywhere; }
   .fix { grid-column: 2 / -1; margin-top: .3rem; font-size: .82rem; }
@@ -251,6 +258,7 @@ render_html() {
   <div class="tile"><b>$N_FAIL</b><span>failed</span></div>
   <div class="tile"><b>$N_WARN</b><span>warnings</span></div>
   <div class="tile"><b>$N_OK</b><span>ok</span></div>
+  <div class="tile"><b>$N_BLOCKED</b><span>blocked</span></div>
 </div>
 HEAD
 
@@ -262,7 +270,13 @@ HEAD
       [[ "$module" == "$m" ]] || continue
       printf '<div class="row %s"><span class="badge">%s</span><span class="label">%s</span><span class="detail">%s</span>' \
         "$status" "$status" "$(html_escape "$label")" "$(html_escape "$detail")"
-      [[ -n "$fix" ]] && printf '<div class="fix">fix: <code>%s</code></div>' "$(html_escape "$fix")"
+      if [[ -n "$fix" ]]; then
+        if [[ "$status" == blocked ]]; then
+          printf '<div class="fix">track: <code>%s</code></div>' "$(html_escape "$fix")"
+        else
+          printf '<div class="fix">fix: <code>%s</code></div>' "$(html_escape "$fix")"
+        fi
+      fi
       printf '</div>\n'
     done <"$CHECK_RESULTS"
     printf '</section>\n'

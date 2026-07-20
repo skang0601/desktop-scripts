@@ -7,7 +7,9 @@
 # standing block doesn't read as a fresh error on every run, and doesn't fail
 # the module's exit status.
 BLOCKED=79
-blocked() { warn "$*"; exit "$BLOCKED"; }
+# Continuation lines are indented under the "!!" so a reason that carries an
+# upstream thread to watch still reads as one message.
+blocked() { warn "${*//$'\n'/$'\n'    }"; exit "$BLOCKED"; }
 
 # CLI/dev tooling. Homebrew first: it is user-level, needs no reboot, and avoids
 # layering entirely on atomic systems (ADR 0004/0005). Bazzite ships brew.
@@ -114,6 +116,20 @@ run_app_checks() {
     # the caller runs under errexit.
     declare -F app_checks >/dev/null || exit 0
     app_checks )
+}
+
+# An app may define app_blocked() to say it cannot be installed on this machine:
+# it prints the reason and succeeds when blocked, and fails when it is not. Both
+# app_install and the checks consult it, so the condition has one definition
+# rather than a copy in each that can drift apart.
+app_blocked_reason() {
+  local name="$1" f
+  f="$(app_path "$name")" || return 1
+  ( APP_DIR="$(dirname "$f")"
+    # shellcheck source=/dev/null
+    source "$f"
+    declare -F app_blocked >/dev/null || exit 1
+    app_blocked )
 }
 
 # Install another apps.d entry on demand. apps run in name order, so an app that

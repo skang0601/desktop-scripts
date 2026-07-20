@@ -10,10 +10,14 @@ module_checks() {
   # app_check is the module's existing contract for "is this already here", so
   # reuse it rather than inventing a second, divergent notion of installed.
   # Anything finer-grained belongs to the app, which owns the paths involved.
-  local name
+  local name reason
   while read -r name; do
     if with_app "$name" app_check >/dev/null 2>&1; then
       check_ok "$name" "installed"
+    elif reason="$(app_blocked_reason "$name")"; then
+      # Second line, when there is one, is where to watch for the block lifting.
+      check_blocked "$name" "${reason%%$'\n'*}" \
+        "$([[ "$reason" == *$'\n'* ]] && printf '%s' "${reason#*$'\n'}")"
     else
       check_warn "$name" "not installed" "./modules/packages/install.sh $name"
     fi

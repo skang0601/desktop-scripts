@@ -26,6 +26,16 @@ add_1password_repo() {
 
 app_check() { have 1password && have op; }
 
+# Only the desktop app is blocked; `op` installs fine, which is why app_install
+# puts the CLI in before consulting this.
+# Reason first, then the upstream thread to watch: the block lifts when
+# 1Password ships the fix, and nothing here will tell us that it has.
+app_blocked() {
+  is_atomic || return 1
+  echo "desktop app cannot layer on ostree until 1Password fixes its %post"
+  echo "https://www.1password.community/1password-at-home-31/update-to-fedora-silverblue-fails-25075"
+}
+
 app_install() {
   add_1password_repo
 
@@ -55,8 +65,9 @@ app_install() {
   #
   # `op` is already in by this point, so the agent socket is the only thing
   # actually lost here.
-  if is_atomic; then
-    blocked "1password: upstream %post is broken on ostree systems; re-run once 1Password ships the fix"
+  local reason
+  if reason="$(app_blocked)"; then
+    blocked "1password: $reason"
   fi
 
   install_rpm 1password

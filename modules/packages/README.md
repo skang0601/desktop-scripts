@@ -94,6 +94,18 @@ app_checks() {
 }
 ```
 
+An app that cannot be installed on some machines defines `app_blocked()`, which
+prints the reason and succeeds when blocked. `app_install` calls `blocked "$reason"`
+on it and `doctor.sh` reports it as **blocked** rather than a warning, so a
+standing upstream bug stops reading as a fresh problem on every run:
+
+```sh
+app_blocked() {
+  is_atomic || return 1
+  echo "desktop app cannot layer on ostree until 1Password fixes its %post"
+}
+```
+
 Helpers available: `install_cli`, `install_rpm`, `install_flatpak`,
 `flatpak_installed`, `require_app`, `blocked` from `lib.sh`; `have`, `run`,
 `dry`, `say`, `warn`, `is_atomic`, `link_config` from `../../lib/common.sh`.
