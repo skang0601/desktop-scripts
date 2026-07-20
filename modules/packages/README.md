@@ -19,6 +19,7 @@ Apps and tooling, installed only when missing.
 | zig | brew / dnf | |
 | claude-code | vendor installer | lands in `~/.local/bin`, no root |
 | claude-desktop | official apt repo, in a distrobox | Anthropic ship Debian/Ubuntu only |
+| dev-box | Fedora toolbox | `-devel` headers for building against system libraries, without layering |
 | steam | Flatpak | preinstalled on Bazzite, so usually a no-op |
 | jetbrains-toolbox | tarball | bootstraps to `~/.local/bin`, then self-updates |
 
@@ -47,6 +48,30 @@ no `--filesystem=home`, and `$HOME` redirected into the sandbox, so
 depends on that socket for every git-over-ssh operation, so the Flatpak would
 break authentication outright. It layers on atomic systems instead -- one of the
 few cases that justifies it.
+
+## Building against system libraries
+
+Crates that bind system libraries -- `hidapi` wants `libudev.pc` -- need `-devel`
+packages no Fedora Atomic image ships. Those are build-time only, so layering
+them would carry headers on the host across every image update to produce
+binaries that never load them.
+
+`dev-box` is a Fedora toolbox for that instead:
+
+```sh
+distrobox enter dev -- cargo build --release
+```
+
+The box is stopped once provisioned and stays that way; `distrobox enter` starts
+it on demand. `doctor.sh` has to look inside to report what is there, so it
+starts the box and stops it again rather than leaving one running.
+
+The image is pinned to the host's Fedora release, so the headers compiled
+against and the sonames the binary loads on the host are the same version.
+Homebrew is mounted at its own prefix, which its bottles hardcode, so
+`~/.bashrc` puts the host's rustup on PATH inside the box and there is no second
+toolchain to keep in step. `doctor.sh` reports a box whose image has fallen
+behind the host.
 
 ## Adding an app
 

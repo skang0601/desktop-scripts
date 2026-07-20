@@ -12,8 +12,6 @@ BOX_IMAGE=quay.io/toolbx/ubuntu-toolbox:24.04
 # install rather than silently signing whatever it likes.
 CLAUDE_KEY_FPR='31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE'
 
-box_exists() { distrobox list 2>/dev/null | awk -F'|' 'NR>1 {gsub(/ /,"",$2); print $2}' | grep -qx "$BOX"; }
-
 # distrobox-export names the host entry "<container>-<desktop id>.desktop", and
 # the app's id is com.anthropic.Claude rather than its binary name. Matching the
 # binary name instead finds nothing and reinstalls on every run.
@@ -24,7 +22,7 @@ app_check() { [[ -f "$EXPORTED" ]]; }
 app_install() {
   have distrobox || { warn "distrobox not available; it ships with Bazzite"; return 1; }
 
-  if ! box_exists; then
+  if ! distrobox_exists "$BOX"; then
     say "creating the $BOX distrobox"
     run distrobox create --name "$BOX" --image "$BOX_IMAGE" --yes
   fi

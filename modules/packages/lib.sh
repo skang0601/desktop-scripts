@@ -75,6 +75,11 @@ brew_relink() {
   run brew link "$1"
 }
 
+# `distrobox list` prints a padded table with the name in the second column.
+distrobox_exists() {
+  distrobox list 2>/dev/null | awk -F'|' 'NR>1 {gsub(/ /,"",$2); print $2}' | grep -qx "$1"
+}
+
 # GUI apps. Flathub is preconfigured on Bazzite; on other systems it may not be.
 install_flatpak() {
   local id="$1"
