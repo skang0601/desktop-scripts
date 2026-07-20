@@ -39,8 +39,13 @@ user unit is needed.
 ## Setup
 
 ```sh
-# 1. keyd must be running, and you must be in the keyd group
+# 1. keyd must be running, and you must be in the keyd group.
+#    On nss-altfiles systems (Bazzite, Silverblue) the keyd group lives in
+#    /usr/lib/group, and usermod only amends /etc/group -- it finds nothing to
+#    change there and exits 0 without adding you. Copy the record over first.
+grep -q '^keyd:' /etc/group || getent group keyd | sudo tee -a /etc/group
 sudo usermod -aG keyd "$USER"      # log out and back in for this to take effect
+getent group keyd | grep -qw "$USER" || echo "membership did not take"
 ls -l /var/run/keyd.socket         # must be group-readable by you
 
 # 2. install the config from this repo

@@ -110,7 +110,32 @@ run install -Dm644 "$MODULE/app.conf" "$HOME/.config/keyd/app.conf"
 
 if ! id -nG "$USER" | grep -qw keyd; then
   say "adding $USER to the keyd group (needed for keyd-application-mapper)"
+
+  # On nss-altfiles systems the image's groups live in /usr/lib/group and only
+  # local ones in /etc/group. usermod resolves keyd through NSS, finds it, then
+  # amends /etc/group -- which holds no keyd record -- and exits 0 having done
+  # nothing at all. Copying the record across first gives it something local to
+  # extend. nsswitch.conf merges the files and altfiles sources, so a record in
+  # both is the arrangement they are designed for, not a conflict.
+  keyd_group="$(getent group keyd || true)"
+  if [[ -n "$keyd_group" ]] && ! grep -q '^keyd:' /etc/group; then
+    if dry; then
+      printf '    [dry-run] append %s to /etc/group\n' "$keyd_group"
+    else
+      printf '%s\n' "$keyd_group" | sudo tee -a /etc/group >/dev/null
+    fi
+  fi
+
   run sudo usermod -aG keyd "$USER"
+
+  # usermod reports success whether or not the membership landed, and the
+  # symptom is a mapper that runs but cannot open /run/keyd.socket, which shows
+  # up only as a log full of permission errors.
+  if ! dry && ! getent group keyd | grep -qw "$USER"; then
+    warn "keyd group membership did not take; per-app remapping will not work"
+    exit 1
+  fi
+
   echo "    log out and back in for this to take effect"
 fi
 
