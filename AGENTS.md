@@ -1,7 +1,50 @@
 # Working in this repo
 
 Desktop setup for GNOME/Wayland, organized as modules under `modules/`, with
-decision records in `docs/decisions/`. See README.md for structure.
+decision records in `docs/decisions/`. README.md has the layout and how the
+pieces fit; each module's README covers that module.
+
+## Testing
+
+Scope to the module you changed; the full run is slower and no more informative.
+
+```sh
+./modules/<name>/install.sh --dry-run   # print every command, change nothing
+./modules/<name>/install.sh             # then again, to confirm the no-op
+./doctor.sh <name>                      # actual state; nonzero if a check failed
+shellcheck -s bash <file>
+
+./modules/packages/install.sh <app>     # one app, not the whole module
+./doctor.sh                             # everything this host enables
+```
+
+The second installer run is part of the test, not a formality: it is what
+catches an `app_check` that does not detect what its own `app_install` just did.
+
+## Where things go
+
+- A new module: `modules/<name>/install.sh`, plus a line in `hosts/*.modules`.
+  Nothing else registers it.
+- A new app: one file in `modules/packages/apps.d/` defining `APP_NAME`,
+  `app_check`, `app_install`. Read that module's README first.
+- A shared helper: `lib/common.sh` for anything a module needs,
+  `modules/packages/lib.sh` for install strategies.
+- A PATH entry: `modules/shell/bashrc.d/10-path.sh`, even when the thing on it
+  is installed by another module -- entries constrain each other's order.
+- Anything answering "why is it like this", where the answer outlives the code:
+  `docs/decisions/`.
+
+## Acting on this machine
+
+These installers change the machine they run on. `--dry-run` first.
+
+Ask before: layering with `rpm-ostree` (needs a reboot and rides along on every
+image update), removing or replacing a package the user did not name,
+`systemctl enable`, and anything that changes GNOME session state. Committing is
+the user's call, not a step in finishing the work.
+
+Fine to run unprompted: `--dry-run` anything, `doctor.sh`, `shellcheck`, and
+re-running an installer whose changes are already agreed.
 
 ## Comments
 

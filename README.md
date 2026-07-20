@@ -36,12 +36,40 @@ such machine, so set one per install or pass `--host`. See
 `--dry-run` is passed through to each module, so it's the way to inspect what a
 fresh machine is about to have done to it before committing.
 
+## Layout
+
+```
+bootstrap.sh          runs each enabled module's install.sh
+doctor.sh             runs each module's checks.sh and reports actual state
+lib/common.sh         say/warn/run/dry, link_config, is_atomic
+lib/checks.sh         check_ok / check_warn / check_fail / check_blocked
+hosts/*.modules       which modules a given machine enables
+modules/<name>/       install.sh + checks.sh + config + README
+docs/decisions/       ADRs
+```
+
+## Checking state
+
+```sh
+./doctor.sh                 # every module this host enables
+./doctor.sh packages shell  # specific modules
+./doctor.sh --html          # the same, as a page
+```
+
+`doctor.sh` reports what is actually installed and configured, as opposed to
+what the installers believe, and exits nonzero if any check failed -- which
+makes it usable as a post-install gate. It is read-only: anything it has to
+start in order to look inside, it puts back.
+
+A module opts in by adding `checks.sh` defining `module_checks()`. As with
+`install.sh`, there is no list anywhere to update.
+
 ## Modules
 
 | Module | What it does |
 | --- | --- |
 | [`keybindings`](modules/keybindings/) | macOS-style Cmd/Ctrl split via keyd, plus the GNOME shortcut adjustments that go with it |
-| [`packages`](modules/packages/) | apps and tooling -- emacs/Doom, go, zig, claude-code, steam, 1password + CLI, jetbrains-toolbox -- installed only when missing |
+| [`packages`](modules/packages/) | apps and tooling -- emacs/Doom, go, rust, zig, claude-code, steam, 1password + CLI, jetbrains-toolbox -- installed only when missing, one file per app in `apps.d/` |
 | [`shell`](modules/shell/) | bash PATH and editor defaults |
 | [`git`](modules/git/) | global git config |
 | [`ssh`](modules/ssh/) | ssh client config; keys come from the 1Password agent |
