@@ -72,6 +72,11 @@ gptel is given the same two capabilities open-webui has:
 | `list_directory` | no | |
 | `run_command` | **yes** | shell on this host |
 
+`gptel-make-tool` only registers a tool; `gptel-tools` is the list actually
+sent with a request, and it is empty by default. Registering without setting it
+leaves the model unaware the tools exist, and it will say it cannot search the
+web. `config.el` sets all four; `<leader> o l t` picks them per buffer.
+
 `run_command` runs on the host as you, with your files and your credentials.
 There is no sandbox: `:confirm t` is the whole of the safety story, and gptel's
 prompt showing the exact command is what stands between the model and the

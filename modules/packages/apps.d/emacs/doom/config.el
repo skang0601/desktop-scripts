@@ -266,4 +266,12 @@ snippets. Use for anything current, or any fact that needs a source."
 and exit status. The user is asked to approve each command before it runs."
    :args '((:name "command" :type string :description "The shell command."))
    :category "system"
-   :confirm t))
+   :confirm t)
+
+  ;; Registering a tool only puts it in gptel's registry. `gptel-tools' is the
+  ;; list actually sent with a request and is empty by default, so without this
+  ;; the model is never told the tools exist and answers that it cannot search
+  ;; the web. Picking them per-buffer is the `<leader> o l t' menu.
+  (setq gptel-tools
+        (mapcar #'gptel-get-tool
+                '("web_search" "read_file" "list_directory" "run_command"))))
