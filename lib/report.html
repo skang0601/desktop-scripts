@@ -4,127 +4,213 @@
 <title>desktop-scripts state</title>
 
 <!--
-  The report doctor.sh --html renders. It is a whole file rather than a heredoc
-  so the markup, CSS and grouping logic can be edited and previewed as markup
-  instead of as shell quoting.
+  The page doctor.sh --html renders. It is a whole file rather than a heredoc so
+  the markup, CSS and grouping logic can be edited as markup instead of as shell
+  quoting.
 
   doctor.sh replaces the DATA placeholder below with the same JSON that
-  ./doctor.sh --json prints, and nothing else. No build step, no network: a
-  saved copy of this page keeps working offline, which is the point of handing
+  ./doctor.sh --json prints, and nothing else. No build step, no network, no
+  webfonts: a saved copy keeps working offline, which is the point of handing
   someone a single file.
 
-  Rows carry a "/"-separated group path. The renderer nests by it, so an app's
-  checks sit under the app and related apps sit under their shared group.
+  Design notes, so the next edit does not undo them by accident:
+
+  - Every string here was emitted by a program, and Solarized is a terminal
+    palette, so the page is set entirely in monospace and reads as an instrument
+    readout rather than a dashboard. The type scale does the work that boxes and
+    extra colour would otherwise do.
+  - The signature is the status rail: the bar down the left of each section and
+    each nested group carries the worst status inside it, so the left edge can be
+    scanned for trouble without reading any text. It is the one loud element;
+    everything else stays quiet on purpose.
+  - Grouping is by surface tone (base3 on base2, base03 on base02) rather than a
+    border around every box.
+  - There is no page-load animation. This page is regenerated constantly, and
+    watching it assemble each time would be friction rather than delight.
 -->
 
 <style>
-  /* Solarized (Ethan Schoonover). The two variants share one set of accent
-     hues and differ only in the base tones, which is the whole point of the
-     scheme -- ok/warn/fail keep the same meaning in both.
+  /* Solarized (Ethan Schoonover). The two variants share one set of accent hues
+     and differ only in the base tones, which is the property this report wants:
+     ok, warn and fail keep the same colour in both.
 
        base03 #002b36   base02 #073642   base01 #586e75   base00 #657b83
        base0  #839496   base1  #93a1a1   base2  #eee8d5   base3  #fdf6e3
 
-     Cards take the "background" role (base3 / base03) and the page takes
-     "background highlights" (base2 / base02), so a card reads as raised.
+     Surfaces take the "background" role (base3 / base03) and the page takes
+     "background highlights" (base2 / base02), so a surface reads as raised.
 
-     Text is shifted one step toward contrast from the documented roles: the
-     spec puts secondary content at base0 on light, which measures 2.9:1 on
-     base3 and is not readable for the detail column that carries paths and
-     versions. Labels take the emphasized tone and details the body tone, which
-     measures 5.0:1 and 4.1:1 on light, 5.6:1 and 4.7:1 on dark.
+     Text is one step toward contrast from the documented roles. The spec puts
+     secondary content at base0, which measures 2.9:1 on base3 and is not
+     readable for the detail column that carries paths and versions. Labels take
+     the emphasized tone and details the body tone: 5.0:1 and 4.1:1 on light,
+     5.6:1 and 4.7:1 on dark, all measured rather than eyeballed.
 
-     The accents are canonical and stay that way. On light they measure 3.0:1,
-     which is below AA for small text -- a known cost of Solarized's accents on
-     base3, and tolerable here only because the badge spells the status out in
-     words as well as colour. Do not "fix" it by inventing off-palette hues;
-     either accept it or change scheme.
+     The accents stay canonical. On light they measure 3.0:1, below AA for small
+     text -- a known cost of Solarized's accents on base3, tolerable only because
+     every status is spelled out in words as well as colour. Do not "fix" it with
+     off-palette hues; either accept it or change scheme.
 
-     Themes are declared three times: the default follows the system, and
-     [data-theme] pins it, which has to win in both directions. */
+     Declared three times: the default follows the system, and [data-theme] pins
+     it, which has to win in both directions. */
   :root, :root[data-theme="light"] {
     color-scheme: light;
-    --bg: #eee8d5; --fg: #586e75; --muted: #657b83; --card: #fdf6e3; --line: #ddd6c1;
-    --ok: #859900; --warn: #b58900; --fail: #dc322f;
+    --page: #eee8d5; --surface: #fdf6e3; --sunk: #e8e0cb;
+    --ink: #586e75; --dim: #657b83; --rule: #ddd6c1;
+    --ok: #859900; --warn: #b58900; --fail: #dc322f; --blocked: #93a1a1;
+    --focus: #268bd2;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme]) {
       color-scheme: dark;
-      --bg: #073642; --fg: #93a1a1; --muted: #839496; --card: #002b36; --line: #0d4753;
-      --ok: #859900; --warn: #b58900; --fail: #dc322f;
+      --page: #073642; --surface: #002b36; --sunk: #01212a;
+      --ink: #93a1a1; --dim: #839496; --rule: #0d4753;
+      --ok: #859900; --warn: #b58900; --fail: #dc322f; --blocked: #586e75;
+      --focus: #268bd2;
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --bg: #073642; --fg: #93a1a1; --muted: #839496; --card: #002b36; --line: #0d4753;
-    --ok: #859900; --warn: #b58900; --fail: #dc322f;
+    --page: #073642; --surface: #002b36; --sunk: #01212a;
+    --ink: #93a1a1; --dim: #839496; --rule: #0d4753;
+    --ok: #859900; --warn: #b58900; --fail: #dc322f; --blocked: #586e75;
+    --focus: #268bd2;
   }
-  .head { display: flex; align-items: flex-start; gap: 1rem; }
-  .head h1 { flex: 1; }
-  #theme { background: var(--card); color: var(--fg); border: 1px solid var(--line);
-           border-radius: .4rem; padding: .35rem .7rem; font: inherit; font-size: .8rem;
-           cursor: pointer; }
-  #theme:hover { border-color: var(--muted); }
+
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 2rem 1.25rem 4rem; background: var(--bg); color: var(--fg);
-         font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 60rem; margin: 0 auto; }
-  h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
-  .sub { color: var(--muted); font-size: .875rem; margin-bottom: 1.5rem; }
-  .tiles { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 2rem; }
-  .tile { flex: 1 1 8rem; background: var(--card); border: 1px solid var(--line);
-          border-radius: .6rem; padding: .85rem 1rem; }
-  .tile b { display: block; font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
-  .tile span { color: var(--muted); font-size: .8rem; }
-  section { background: var(--card); border: 1px solid var(--line); border-radius: .6rem;
-            margin-bottom: 1rem; overflow: hidden; }
-  h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
-       margin: 0; padding: .7rem 1rem; border-bottom: 1px solid var(--line); }
 
-  /* A group is a <details> so a long module can be folded away. Open by
-     default: the report is for reading, not for clicking through. */
-  details.grp { border-bottom: 1px solid var(--line); }
-  details.grp:last-child { border-bottom: 0; }
-  summary { cursor: pointer; padding: .5rem 1rem; font-weight: 500;
-            display: flex; align-items: center; gap: .5rem; }
+  /* One family, no webfonts. Adwaita Mono leads because this repo builds a GNOME
+     desktop, where it is the system monospace. */
+  body {
+    margin: 0;
+    padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 4vw, 2rem) 5rem;
+    background: var(--page);
+    color: var(--ink);
+    font-family: ui-monospace, "Adwaita Mono", "JetBrains Mono", "DejaVu Sans Mono",
+                 SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13.5px;
+    line-height: 1.6;
+    font-variant-numeric: tabular-nums;
+  }
+  main { max-width: 62rem; margin: 0 auto; }
+
+  :where(a, button, summary):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  /* --- masthead ---------------------------------------------------------- */
+
+  .top { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2.25rem; }
+  .eyebrow {
+    flex: 1; margin: 0;
+    font-size: .6875rem; font-weight: 700;
+    letter-spacing: .22em; text-transform: uppercase; color: var(--dim);
+  }
+  #theme {
+    background: none; color: var(--dim); border: 1px solid var(--rule);
+    border-radius: 2px; padding: .25rem .6rem;
+    font: inherit; font-size: .6875rem; letter-spacing: .08em;
+    cursor: pointer;
+  }
+  #theme:hover { color: var(--ink); border-color: var(--dim); }
+
+  /* The verdict is the hero. The page exists to answer one question, so it
+     answers it in a sentence before showing any of the working. */
+  .verdict {
+    margin: 0 0 .4rem;
+    font-size: clamp(1.4rem, 3.6vw, 2.1rem);
+    font-weight: 700;
+    letter-spacing: -.015em;
+    line-height: 1.2;
+  }
+  .verdict.ok { color: var(--ok); }
+  .verdict.warn { color: var(--warn); }
+  .verdict.fail { color: var(--fail); }
+  .meta { margin: 0 0 1rem; color: var(--dim); font-size: .8125rem; }
+
+  .tally { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 2.5rem;
+           font-size: .8125rem; color: var(--dim); }
+  .tally b { font-weight: 700; color: var(--ink); }
+  /* The rail mark again, reused as the legend's bullet, so the colour is learned
+     here and recognised down the left edge below. */
+  .tally i { display: inline-block; width: .3rem; height: .8em; margin-right: .45rem;
+             vertical-align: -.05em; border-radius: 1px; background: currentColor; }
+  .t-ok { color: var(--ok); } .t-warn { color: var(--warn); }
+  .t-fail { color: var(--fail); } .t-blocked { color: var(--blocked); }
+
+  /* --- sections and groups ------------------------------------------------ */
+
+  /* The rail. A section or group is a surface with a coloured left border
+     showing the worst status inside it; nesting adds another rail further in, so
+     severity stays visible at the edge at every depth. */
+  section, details.grp {
+    border-left: 3px solid var(--rail, var(--rule));
+    background: var(--surface);
+  }
+  section { margin-bottom: 1.25rem; }
+  details.grp { background: none; margin-left: 1.25rem; }
+  details.grp + details.grp { margin-top: 1px; }
+
+  .module {
+    margin: 0; padding: .75rem 1rem;
+    font-size: .6875rem; font-weight: 700;
+    letter-spacing: .2em; text-transform: uppercase; color: var(--dim);
+  }
+
+  summary {
+    display: flex; align-items: baseline; gap: .5rem;
+    padding: .5rem 1rem; cursor: pointer;
+    font-weight: 700; color: var(--ink);
+  }
   summary::-webkit-details-marker { display: none; }
-  summary::before { content: "▾"; color: var(--muted); font-size: .75rem; width: .75rem; }
-  details:not([open]) > summary::before { content: "▸"; }
-  /* Nested groups indent by depth rather than by nesting-specific rules. */
-  .grp .grp { border-bottom: 0; }
-  .grp .grp > summary { padding-left: 2rem; }
-  .grp .grp .grp > summary { padding-left: 3rem; }
-  .counts { margin-left: auto; display: flex; gap: .4rem; font-size: .75rem;
-            font-weight: 400; font-variant-numeric: tabular-nums; }
-  .counts .n-ok { color: var(--ok); } .counts .n-warn { color: var(--warn); }
-  .counts .n-fail { color: var(--fail); } .counts .n-blocked { color: var(--muted); }
+  summary::before { content: "+"; color: var(--dim); width: .75rem; flex: none; font-weight: 400; }
+  details[open] > summary::before { content: "\2212"; }
+  summary:hover { background: var(--sunk); }
+  .counts { margin-left: auto; display: flex; gap: .75rem; font-size: .75rem; font-weight: 400; }
 
-  .row { display: grid; grid-template-columns: 4.5rem minmax(9rem, 14rem) 1fr;
-         gap: .75rem; padding: .55rem 1rem; border-top: 1px solid var(--line);
-         align-items: baseline; }
-  .grp .row { padding-left: 2rem; }
-  .grp .grp .row { padding-left: 3rem; }
-  .badge { font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  /* --- rows --------------------------------------------------------------- */
+
+  .row {
+    display: grid;
+    grid-template-columns: 4rem minmax(8rem, 15rem) 1fr;
+    gap: .25rem 1rem;
+    padding: .3rem 1rem;
+    align-items: baseline;
+  }
+  details.grp .row { padding-left: 1.75rem; }
+  .badge { font-size: .75rem; letter-spacing: .06em; }
   .ok .badge { color: var(--ok); } .warn .badge { color: var(--warn); }
-  .fail .badge { color: var(--fail); } .blocked .badge { color: var(--muted); }
-  .label { font-weight: 500; }
-  .detail { color: var(--muted); overflow-wrap: anywhere; }
-  .fix { grid-column: 2 / -1; margin-top: .3rem; font-size: .82rem; }
-  .fix code { background: var(--bg); border: 1px solid var(--line); border-radius: .3rem;
-              padding: .1rem .35rem; font-size: .95em; overflow-wrap: anywhere; }
-  @media (max-width: 34rem) {
-    .row { grid-template-columns: 4.5rem 1fr; }
+  .fail .badge { color: var(--fail); } .blocked .badge { color: var(--blocked); }
+  /* The label is not re-coloured by status: the rail and the badge already say
+     it, and a third telling only makes the page louder. */
+  .label { color: var(--ink); }
+  .detail { color: var(--dim); overflow-wrap: anywhere; }
+
+  /* The fix is a command you run, so it is written like one. */
+  .fix { grid-column: 2 / -1; color: var(--dim); font-size: .8125rem; }
+  .fix code { color: var(--ink); overflow-wrap: anywhere; }
+  .fix::before { content: "$ "; color: var(--dim); }
+  .fix.watch::before { content: "watch: "; letter-spacing: .04em; }
+
+  @media (max-width: 40rem) {
+    .row { grid-template-columns: 3.5rem 1fr; }
     .fix { grid-column: 1 / -1; }
+    details.grp { margin-left: .5rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
   }
 </style>
 
 <main>
-  <div class="head">
-    <h1>desktop-scripts state</h1>
+  <div class="top">
+    <p class="eyebrow">desktop-scripts &middot; state</p>
     <button id="theme" type="button" title="solarized light / dark / follow system"></button>
   </div>
-  <div class="sub" id="sub"></div>
-  <div class="tiles" id="tiles"></div>
+  <p class="verdict" id="verdict"></p>
+  <p class="meta" id="meta"></p>
+  <div class="tally" id="tally"></div>
   <div id="modules"></div>
 </main>
 
@@ -139,36 +225,65 @@
     return n;
   };
 
-  document.getElementById("sub").textContent = `${state.host} · ${state.generated}`;
+  // Worst first: a rail shows the most serious thing inside it, which is the
+  // only ordering that lets the left edge be scanned instead of read.
+  const SEVERITY = ["fail", "warn", "blocked", "ok"];
+  const worst = (t) => SEVERITY.find((s) => t[s] > 0) || "ok";
 
-  // Three states, not two: "system" has to be reachable again after choosing,
-  // otherwise the first click permanently opts out of following the desktop.
+  /* --- masthead ---------------------------------------------------------- */
+
+  const s = state.summary;
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const verdict = document.getElementById("verdict");
+  if (s.fail) {
+    verdict.textContent = `${plural(s.fail, "check has", "checks have")} failed.`;
+    verdict.classList.add("fail");
+  } else if (s.warn) {
+    verdict.textContent = `${plural(s.warn, "check needs", "checks need")} attention.`;
+    verdict.classList.add("warn");
+  } else {
+    verdict.textContent = "Everything the repo declares is in place.";
+    verdict.classList.add("ok");
+  }
+
+  document.getElementById("meta").textContent = `${state.host} · ${state.generated}`;
+
+  const tally = document.getElementById("tally");
+  for (const [key, one, many] of [["ok", "ok", "ok"], ["warn", "warning", "warnings"],
+                                  ["fail", "failed", "failed"],
+                                  ["blocked", "blocked", "blocked"]]) {
+    if (!s[key] && key === "blocked") continue;   // rare; do not show a zero
+    const item = el("span", `t-${key}`);
+    item.append(el("i"), el("b", null, s[key]),
+                document.createTextNode(` ${s[key] === 1 ? one : many}`));
+    tally.append(item);
+  }
+
+  /* --- theme -------------------------------------------------------------- */
+
+  // Three states, not two: following the desktop has to stay reachable after a
+  // choice has been made.
   const THEMES = ["system", "light", "dark"];
   const button = document.getElementById("theme");
   const applyTheme = (name) => {
     if (name === "system") document.documentElement.removeAttribute("data-theme");
     else document.documentElement.setAttribute("data-theme", name);
-    button.textContent = name === "system" ? "theme: system" : `theme: ${name}`;
+    button.textContent = `theme: ${name}`;
     try { localStorage.setItem("theme", name); } catch { /* private mode */ }
   };
-  let current = "system";
-  try { current = localStorage.getItem("theme") || "system"; } catch { /* ignore */ }
-  if (!THEMES.includes(current)) current = "system";
-  applyTheme(current);
+  let theme = "system";
+  try { theme = localStorage.getItem("theme") || "system"; } catch { /* ignore */ }
+  if (!THEMES.includes(theme)) theme = "system";
+  applyTheme(theme);
   button.addEventListener("click", () => {
-    current = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length];
-    applyTheme(current);
+    theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    applyTheme(theme);
   });
 
-  for (const [key, label] of [["fail", "failed"], ["warn", "warnings"],
-                              ["ok", "ok"], ["blocked", "blocked"]]) {
-    const tile = el("div", "tile");
-    tile.append(el("b", null, state.summary[key]), el("span", null, label));
-    document.getElementById("tiles").append(tile);
-  }
+  /* --- tree ---------------------------------------------------------------- */
 
-  // Rows arrive flat, each carrying a "/"-separated group path. Build the tree
-  // in insertion order so the page preserves the order the checks ran in.
+  // Rows arrive flat, each carrying a "/"-separated group path. Build the tree in
+  // insertion order so the page keeps the order the checks ran in.
   const tree = () => ({ rows: [], kids: new Map() });
   const at = (node, path) =>
     path.reduce((n, part) => {
@@ -183,14 +298,12 @@
     at(byModule.get(c.module), path).rows.push(c);
   }
 
-  // A group's badge counts everything beneath it, so a collapsed group still
-  // says whether anything inside needs attention.
-  const tally = (node) => {
+  const tallyOf = (node) => {
     const t = { ok: 0, warn: 0, fail: 0, blocked: 0 };
     for (const r of node.rows) t[r.status] = (t[r.status] || 0) + 1;
     for (const kid of node.kids.values()) {
-      const k = tally(kid);
-      for (const s of Object.keys(t)) t[s] += k[s];
+      const k = tallyOf(kid);
+      for (const key of Object.keys(t)) t[key] += k[key];
     }
     return t;
   };
@@ -201,7 +314,7 @@
                el("span", "label", c.label),
                el("span", "detail", c.detail));
     if (c.fix) {
-      const fix = el("div", "fix", c.status === "blocked" ? "track: " : "fix: ");
+      const fix = el("div", c.status === "blocked" ? "fix watch" : "fix");
       fix.append(el("code", null, c.fix));
       row.append(fix);
     }
@@ -211,16 +324,17 @@
   const renderNode = (node, into) => {
     node.rows.forEach((c) => into.append(renderRow(c)));
     for (const [name, kid] of node.kids) {
+      const t = tallyOf(kid);
       const d = el("details", "grp");
       d.open = true;
-      const s = el("summary", null, name);
+      d.style.setProperty("--rail", `var(--${worst(t)})`);
+      const sum = el("summary", null, name);
       const counts = el("span", "counts");
-      const t = tally(kid);
-      for (const status of ["fail", "warn", "blocked", "ok"]) {
-        if (t[status]) counts.append(el("span", `n-${status}`, `${t[status]} ${status}`));
+      for (const status of SEVERITY) {
+        if (t[status]) counts.append(el("span", `t-${status}`, `${t[status]} ${status}`));
       }
-      s.append(counts);
-      d.append(s);
+      sum.append(counts);
+      d.append(sum);
       renderNode(kid, d);
       into.append(d);
     }
@@ -229,7 +343,8 @@
   const modules = document.getElementById("modules");
   for (const [name, node] of byModule) {
     const sec = el("section");
-    sec.append(el("h2", null, name));
+    sec.style.setProperty("--rail", `var(--${worst(tallyOf(node))})`);
+    sec.append(el("h2", "module", name));
     renderNode(node, sec);
     modules.append(sec);
   }
