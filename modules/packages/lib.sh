@@ -101,6 +101,21 @@ with_app() {
     "$fn" )
 }
 
+# An app may define app_checks() to report state beyond installed/not, using the
+# same path detection its app_install uses rather than a second copy of it in the
+# module's checks.sh. Optional, so a missing one is not an error.
+run_app_checks() {
+  local name="$1" f
+  f="$(app_path "$name")" || return 0
+  ( APP_DIR="$(dirname "$f")"
+    # shellcheck source=/dev/null
+    source "$f"
+    # Not `&& app_checks`: that returns nonzero for every app without one, and
+    # the caller runs under errexit.
+    declare -F app_checks >/dev/null || exit 0
+    app_checks )
+}
+
 # Install another apps.d entry on demand. apps run in name order, so an app that
 # depends on another cannot rely on ordering alone.
 require_app() {

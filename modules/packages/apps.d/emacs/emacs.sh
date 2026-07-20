@@ -10,9 +10,11 @@ DOOMDIR="$HOME/.config/doom"
 DOOMDIR_LEGACY="$HOME/.doom.d"
 
 doom_installed() { [[ -x "$DOOM_DIR/bin/doom" || -x "$DOOM_LEGACY/bin/doom" ]]; }
-doom_bin()       { [[ -x "$DOOM_LEGACY/bin/doom" ]] && echo "$DOOM_LEGACY/bin/doom" || echo "$DOOM_DIR/bin/doom"; }
+doom_legacy()    { [[ -x "$DOOM_LEGACY/bin/doom" ]]; }
+doom_home()      { doom_legacy && echo "$DOOM_LEGACY" || echo "$DOOM_DIR"; }
+doom_bin()       { echo "$(doom_home)/bin/doom"; }
 # Follow the legacy config path only when a legacy Doom is what's installed.
-doomdir()        { [[ -x "$DOOM_LEGACY/bin/doom" ]] && echo "$DOOMDIR_LEGACY" || echo "$DOOMDIR"; }
+doomdir()        { doom_legacy && echo "$DOOMDIR_LEGACY" || echo "$DOOMDIR"; }
 
 # Fedora's emacs is built four ways and the RPM picks pgtk, which draws
 # natively on Wayland. brew's Linux bottle is configured --without-x and only
@@ -85,4 +87,28 @@ app_install() {
   fi
   say "run 'doom sync' after editing $APP_DIR/doom"
   say "the shell module puts Doom's bin/ on PATH"
+}
+
+# Reported by ../../checks.sh through doctor.sh. Reuses the detection above, so
+# the check follows whichever layout this machine actually has rather than
+# assuming the modern one.
+app_checks() {
+  if ! doom_installed; then
+    check_warn "doom" "not installed" "./modules/packages/install.sh emacs"
+    return 0
+  fi
+  check_ok "doom" "$(doom_home)"
+
+  check_symlink "doom config" "$(doomdir)" "$APP_DIR/doom" \
+    "./modules/packages/install.sh emacs"
+
+  # brew's Linux bottle is built --without-x and takes precedence on PATH once
+  # `brew shellenv` has run, so a working GUI build can be shadowed by one that
+  # only ever opens a terminal frame.
+  if emacs_gui; then
+    check_ok "emacs GUI build" "$(command -v emacs)"
+  else
+    check_fail "emacs GUI build" "$(command -v emacs || echo emacs) cannot open a frame" \
+      "./modules/packages/install.sh emacs"
+  fi
 }

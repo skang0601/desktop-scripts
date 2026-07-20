@@ -82,6 +82,18 @@ Write `app_check` against every location the app might already occupy, not just
 the one this script would install to. Doom, for instance, lives at
 `~/.config/emacs` now but `~/.emacs.d` still shadows it.
 
+An app may also define `app_checks()`, reported by [`doctor.sh`](../../doctor.sh).
+`app_check` answers "is it here" in one bit; `app_checks` says what is actually
+wrong, using the app's own path detection rather than a second copy of it in the
+module's `checks.sh`:
+
+```sh
+app_checks() {
+  check_ok   "doom" "$(doom_home)"                      # or check_warn / check_fail
+  check_symlink "doom config" "$(doomdir)" "$APP_DIR/doom" "<how to fix>"
+}
+```
+
 Helpers available: `install_cli`, `install_rpm`, `install_flatpak`,
 `flatpak_installed`, `require_app`, `blocked` from `lib.sh`; `have`, `run`,
 `dry`, `say`, `warn`, `is_atomic`, `link_config` from `../../lib/common.sh`.
