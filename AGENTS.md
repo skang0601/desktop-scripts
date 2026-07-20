@@ -18,6 +18,18 @@ shellcheck -s bash <file>
 ./doctor.sh                             # everything this host enables
 ```
 
+A pre-commit hook runs `shellcheck -S warning` over staged shell and refuses the
+commit if it fails. `bootstrap.sh` points `core.hooksPath` at `.githooks/`,
+since hooks under `.git/hooks` are not tracked; a fresh clone gets them on the
+first bootstrap, or with `git config core.hooksPath .githooks`.
+
+The repo is clean at that severity, so anything the hook reports is new. Severity
+is `warning` rather than the default because `info` is dominated by SC1091
+(ShellCheck not following `source`), which is not actionable here. `SC2034` is
+disabled repo-wide in `.shellcheckrc` with its rationale: variables here are
+routinely set in one file and consumed by another that sources it, which
+ShellCheck cannot see.
+
 The second installer run is part of the test, not a formality: it is what
 catches an `app_check` that does not detect what its own `app_install` just did.
 

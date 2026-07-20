@@ -1,5 +1,7 @@
 # State checks for the shell module. Sourced by ../../doctor.sh.
 # shellcheck shell=bash
+# shellcheck disable=SC2088  # tildes here are display labels and
+# copy-pasteable hints, not paths this script resolves itself
 
 module_checks() {
   if [[ -f "$HOME/.bashrc" ]] && grep -q 'bashrc\.d' "$HOME/.bashrc"; then

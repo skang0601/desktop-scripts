@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 APP_NAME=1password
 
 # The desktop app's value here is the SSH agent socket at ~/.1password/agent.sock,

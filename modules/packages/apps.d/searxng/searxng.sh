@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 APP_NAME=searxng
 
 # Reported together in doctor's grouped output: one local-LLM stack rather than

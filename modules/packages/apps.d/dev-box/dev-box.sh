@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 APP_NAME=dev-box
 
 # A Fedora toolbox holding the -devel packages that compiling against system

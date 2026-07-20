@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 APP_NAME=go
 
 app_check() { have go; }

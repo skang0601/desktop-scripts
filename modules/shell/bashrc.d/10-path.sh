@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # PATH additions. Sourced from ~/.bashrc via ~/.bashrc.d/.
 
 # Add to PATH only if present and not already there, so nested shells and

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 APP_NAME=emacs
 
 # Doom's config dir: $DOOMDIR, then ~/.config/doom, then legacy ~/.doom.d.

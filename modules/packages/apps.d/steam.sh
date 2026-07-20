@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 APP_NAME=steam
 
 # Bazzite ships Steam in the image, so this is usually a no-op there.

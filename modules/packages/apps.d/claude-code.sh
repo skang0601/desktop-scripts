@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 APP_NAME=claude-code
 
 app_check() { have claude; }

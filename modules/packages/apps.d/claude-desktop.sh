@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 APP_NAME=claude-desktop
 
 # Anthropic ship the desktop app for Debian and Ubuntu only; the docs state

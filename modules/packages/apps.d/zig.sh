@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 APP_NAME=zig
 
 app_check() { have zig; }

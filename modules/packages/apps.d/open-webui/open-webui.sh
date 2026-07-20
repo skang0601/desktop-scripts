@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 APP_NAME=open-webui
 
 # Reported together in doctor's grouped output: one local-LLM stack rather than

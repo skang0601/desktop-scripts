@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 APP_NAME=rust
 
 app_check() { have rustup; }

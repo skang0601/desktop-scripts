@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 APP_NAME=jetbrains-toolbox
 
 # Toolbox self-installs into ~/.local/share/JetBrains/Toolbox on first run and

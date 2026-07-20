@@ -61,6 +61,13 @@ else
     || echo "note: no $(basename "$HOSTFILE"), running everything"
 fi
 
+# Hooks under .git/hooks are not tracked, so a clone starts without them. This
+# points git at the tracked directory instead. Local to this repo, and cheap
+# enough to reassert on every run rather than document as a manual step.
+if [[ -d "$REPO/.git" && "$(git -C "$REPO" config core.hooksPath || true)" != .githooks ]]; then
+  run git -C "$REPO" config core.hooksPath .githooks
+fi
+
 FAILED=()
 for m in "${MODULES[@]}"; do
   script="$REPO/modules/$m/install.sh"

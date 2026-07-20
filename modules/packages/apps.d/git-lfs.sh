@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 APP_NAME=git-lfs
 
 app_check() { have git-lfs; }

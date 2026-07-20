@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2088  # tildes here are display labels and
+# copy-pasteable hints, not paths this script resolves itself
 # Shell environment: PATH and editor defaults for bash.
 #
 #   ./install.sh --dry-run

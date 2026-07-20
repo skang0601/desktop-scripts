@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Lint staged shell before it becomes history.
+#
+# Installed by pointing core.hooksPath at this directory, which bootstrap.sh
+# does; hooks under .git/hooks are not tracked and so cannot be shared.
+#
+# Staged files only, and the staged *content* rather than the working tree: a
+# partially staged file has to be judged by what is being committed, not by what
+# happens to be on disk.
+set -euo pipefail
+
+command -v shellcheck >/dev/null || {
+  printf '!!  shellcheck not found; skipping the shell lint\n' >&2
+  printf '    brew install shellcheck\n' >&2
+  exit 0
+}
+
+mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACMR -z \
+  | tr '\0' '\n' | grep -E '\.(sh|bash)$' || true)
+(( ${#staged[@]} )) || exit 0
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+failed=0
+for f in "${staged[@]}"; do
+  mkdir -p "$tmp/$(dirname "$f")"
+  git show ":$f" >"$tmp/$f"
+done
+
+# Run from the temp tree so .shellcheckrc and any `source` paths resolve the
+# same way they do in the real one.
+cp .shellcheckrc "$tmp/" 2>/dev/null || true
+( cd "$tmp" && shellcheck -S warning "${staged[@]}" ) || failed=1
+
+if (( failed )); then
+  printf '\n!!  shellcheck failed on staged shell; commit refused\n' >&2
+  printf '    fix the above, or commit with --no-verify if you mean it\n' >&2
+  exit 1
+fi
