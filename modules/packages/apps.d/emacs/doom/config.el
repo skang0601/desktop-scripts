@@ -154,6 +154,7 @@
       :desc "Clear context"             "c" #'gptel-context-remove-all
       :desc "Remove from context"       "d" #'gptel-context-remove
       :desc "Add kill to context"       "y" #'gptel-context-add-current-kill
+      :desc "Abort"                     "k" #'gptel-abort
       :desc "Tools"                     "t" #'gptel-tools
       :desc "System prompt"             "p" #'gptel-system-prompt
       :desc "Preset"                    "P" #'gptel-preset)
@@ -243,7 +244,7 @@
    :description "Search the web and return the top results with URLs and \
 snippets. Use for anything current, or any fact that needs a source."
    :args '((:name "query" :type string :description "The search query."))
-   :category "web")
+   :category "research")
 
   (gptel-make-tool
    :name "read_file"
@@ -271,7 +272,9 @@ and exit status. The user is asked to approve each command before it runs."
   ;; Registering a tool only puts it in gptel's registry. `gptel-tools' is the
   ;; list actually sent with a request and is empty by default, so without this
   ;; the model is never told the tools exist and answers that it cannot search
-  ;; the web. Picking them per-buffer is the `<leader> o l t' menu.
+  ;; the web. It holds tool objects, not names or categories -- `gptel-get-tool'
+  ;; is what turns one into the other. Picking a subset per buffer is the
+  ;; `<leader> o l t' menu.
   (setq gptel-tools
         (mapcar #'gptel-get-tool
                 '("web_search" "read_file" "list_directory" "run_command"))))
