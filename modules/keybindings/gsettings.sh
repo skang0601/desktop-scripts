@@ -15,6 +15,13 @@ echo "==> Super+Space -> overview"
 # the Super tap (overlay-key). This is an addition, not a restored default.
 gsettings set org.gnome.shell.keybindings toggle-overview "['<Super>space']"
 
+# switch-input-source defaults to <Super>space and its backward twin to
+# <Shift><Super>space, so both bindings above land on keys GNOME already claims
+# and the input switcher wins. Clearing them costs nothing while a single
+# source is configured; a second layout needs a different key, not these back.
+gsettings set org.gnome.desktop.wm.keybindings switch-input-source "[]"
+gsettings set org.gnome.desktop.wm.keybindings switch-input-source-backward "[]"
+
 echo "==> gtk-key-theme stays Default; GTK key themes are a dead end here"
 # Considered and rejected twice, so don't reach for it a third time.
 #
