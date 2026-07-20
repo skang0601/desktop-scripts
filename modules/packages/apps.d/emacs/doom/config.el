@@ -6,8 +6,8 @@
 
 ;; Some functionality uses this to identify you, e.g. GPG configuration, email
 ;; clients, file templates and snippets. It is optional.
-;; (setq user-full-name "John Doe"
-;;       user-mail-address "john@doe.com")
+(setq user-full-name "Sung Kang"
+      user-mail-address "skang124@proton.me")
 
 ;; Doom exposes five (optional) variables for controlling fonts in Doom:
 ;;
@@ -74,3 +74,86 @@
 ;;
 ;; You can also try 'gd' (or 'C-c c d') to jump to their definition and see how
 ;; they are implemented.
+
+
+;;; Local LLM
+;;
+;; gptel talks to the ollama the packages module installs, on its default
+;; 127.0.0.1:11434. Nothing leaves the machine and no API key is involved, so
+;; it is the default backend rather than one to switch to.
+
+(defvar +ollama-host "127.0.0.1:11434")
+
+;; ollama picks the model from the GPU's VRAM and writes the choice here, so
+;; the tag differs per machine and is read rather than named. open-webui's
+;; installer reads the same file.
+(defvar +ollama-roles-file "~/.local/share/ollama/roles.env")
+
+;; Only used when neither the roles file nor the server can answer.
+(defvar +ollama-fallback-model 'qwen3.5:latest)
+
+(defun +ollama-role (key)
+  "Value of KEY in ollama's roles file, or nil."
+  (let ((f (expand-file-name +ollama-roles-file)))
+    (when (file-readable-p f)
+      (with-temp-buffer
+        (insert-file-contents f)
+        (goto-char (point-min))
+        (when (re-search-forward (format "^%s=\\(.+\\)$" (regexp-quote key)) nil t)
+          (intern (string-trim (match-string 1))))))))
+
+(defun +ollama-models ()
+  "Model tags the local ollama server reports, or nil if it is not running."
+  (ignore-errors
+    (with-current-buffer
+        ;; Two seconds: this runs when gptel first loads, so a server that is
+        ;; down has to fail fast rather than hang the editor.
+        (url-retrieve-synchronously
+         (format "http://%s/api/tags" +ollama-host) t t 2)
+      (unwind-protect
+          (progn
+            (goto-char (point-min))
+            (when (re-search-forward "^$" nil t)
+              (mapcar (lambda (m) (intern (alist-get 'name m)))
+                      (alist-get 'models
+                                 (json-parse-buffer :object-type 'alist)))))
+        (kill-buffer)))))
+
+(after! gptel
+  (let* ((available (+ollama-models))
+         (chosen (+ollama-role "OLLAMA_MODEL"))
+         ;; The roles file names the intent; the server says what is actually
+         ;; pulled. Trust the first only when the second agrees with it, since
+         ;; a bare tag like qwen3.5 is reported as qwen3.5:latest.
+         (default (or (and chosen
+                           (or (car (memq chosen available))
+                               (car (memq (intern (format "%s:latest" chosen))
+                                          available))))
+                      (car available)
+                      +ollama-fallback-model)))
+    (setq gptel-model default
+          gptel-backend (gptel-make-ollama "Ollama"
+                          :host +ollama-host
+                          :stream t
+                          :models (or available (list default))))))
+
+;; Extends the `<leader> o l' prefix the :tools llm module already defines in
+;; config/default rather than starting a prefix of its own, so every gptel
+;; command lives in one place. Only the keys Doom leaves free there are used --
+;; it takes a, e, f, l, s, m, r, o and O.
+;;
+;; `:prefix "o l"', not `:prefix ("l" . "llm")': the cons form defines a new
+;; prefix command and binds it over the existing one, which silently drops
+;; every binding Doom put there.
+;;
+;; `L' is bound because Doom only ships it in +evil-bindings.el, and this
+;; config runs without :editor evil, so the command is otherwise unreachable.
+(map! :leader
+      :prefix "o l"
+      :desc "Open gptel in same window" "L" #'+llm/open-in-same-window
+      :desc "Clear context"             "c" #'gptel-context-remove-all
+      :desc "Remove from context"       "d" #'gptel-context-remove
+      :desc "Add kill to context"       "y" #'gptel-context-add-current-kill
+      :desc "Tools"                     "t" #'gptel-tools
+      :desc "System prompt"             "p" #'gptel-system-prompt
+      :desc "Preset"                    "P" #'gptel-preset)
