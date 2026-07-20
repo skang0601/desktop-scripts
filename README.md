@@ -98,7 +98,8 @@ expensive thing to rediscover after a reinstall is *why*.
 - [0004](docs/decisions/0004-installing-on-atomic-systems.md) -- supporting atomic
   systems (Bazzite, Silverblue) in every installer
 - [0005](docs/decisions/0005-package-install-strategy.md) -- preferring
-  user-level installs over layering
+  user-level installs over layering, including distrobox and why it is not a
+  sandbox
 
 ## Conventions
 
