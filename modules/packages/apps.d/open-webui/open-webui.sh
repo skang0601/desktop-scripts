@@ -1,5 +1,9 @@
 APP_NAME=open-webui
 
+# Reported together in doctor's grouped output: one local-LLM stack rather than
+# three apps scattered through an alphabetical list.
+APP_GROUP="local llm"
+
 # Quadlet rather than a hand-written unit: podman generates the service from
 # this file, so the container's lifecycle, image pull and cleanup are its
 # concern rather than an ExecStartPre/ExecStopPost pair to keep correct.

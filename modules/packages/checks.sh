@@ -15,6 +15,9 @@ module_checks() {
   # app_names, silently ending the loop partway down the list.
   local name reason
   while read -r name; do
+    # The app's own summary row belongs to the app, so it heads the app's block
+    # rather than floating above it.
+    CHECK_GROUP="$(app_group_path "$name")"
     if with_app "$name" app_check </dev/null >/dev/null 2>&1; then
       check_ok "$name" "installed"
     elif reason="$(app_blocked_reason "$name")"; then
@@ -26,5 +29,5 @@ module_checks() {
     fi
     run_app_checks "$name" </dev/null \
       || check_warn "$name checks" "app_checks in $name exited early"
-  done < <(app_names)
+  done < <(app_names_grouped)
 }

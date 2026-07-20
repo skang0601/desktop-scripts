@@ -1,5 +1,9 @@
 APP_NAME=searxng
 
+# Reported together in doctor's grouped output: one local-LLM stack rather than
+# three apps scattered through an alphabetical list.
+APP_GROUP="local llm"
+
 QUADLET_SRC() { printf '%s/searxng.container\n' "$APP_DIR"; }
 SETTINGS_SRC() { printf '%s/settings.yml\n' "$APP_DIR"; }
 

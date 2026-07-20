@@ -1,5 +1,9 @@
 APP_NAME=ollama
 
+# Reported together in doctor's grouped output: one local-LLM stack rather than
+# three apps scattered through an alphabetical list.
+APP_GROUP="local llm"
+
 # The vendor tarball, not brew: brew's Linux bottle ships no CUDA runner, so it
 # would run inference on the CPU with nothing in the output to say so. See
 # README.md.

@@ -170,12 +170,40 @@ run_app_checks() {
   local name="$1" f
   f="$(app_path "$name")" || return 0
   ( APP_DIR="$(dirname "$f")"
+    # Nest this app's rows under it, and under its APP_GROUP when it declares
+    # one, so related apps read as one thing rather than scattering through an
+    # alphabetical list.
+    CHECK_GROUP="$(app_group_path "$name")"
+    export CHECK_GROUP
     # shellcheck source=/dev/null
     source "$f"
     # Not `&& app_checks`: that returns nonzero for every app without one, and
     # the caller runs under errexit.
     declare -F app_checks >/dev/null || exit 0
     app_checks )
+}
+
+# "GROUP/name" when the app declares APP_GROUP, otherwise just "name". Sourced
+# in a subshell because reading APP_GROUP means loading the app file.
+app_group_path() {
+  local name="$1" f
+  f="$(app_path "$name")" || { printf '%s\n' "$name"; return 0; }
+  ( APP_DIR="$(dirname "$f")"
+    # shellcheck source=/dev/null
+    source "$f" >/dev/null 2>&1
+    if [[ -n "${APP_GROUP:-}" ]]; then
+      printf '%s/%s\n' "$APP_GROUP" "$name"
+    else
+      printf '%s\n' "$name"
+    fi )
+}
+
+# Apps in group order, then name order, so a group's members are adjacent.
+app_names_grouped() {
+  local name
+  while read -r name; do
+    printf '%s\t%s\n' "$(app_group_path "$name")" "$name"
+  done < <(app_names) | sort -t/ -k1,1 | cut -f2
 }
 
 # An app may define app_blocked() to say it cannot be installed on this machine:
