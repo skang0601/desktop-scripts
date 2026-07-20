@@ -8,10 +8,20 @@
 # machines in that state.
 
 # ssh_config is first-obtained-wins, so this has to precede `Host *` for the
-# agent to beat the on-disk key. The test keeps a stale IdentityAgent from
-# breaking auth outright: pointing at a socket that isn't there makes ssh fail
-# rather than move on to the next identity.
-Match exec "test -S %d/.1password/agent.sock"
+# agent to beat the on-disk key.
+#
+# The test asks the agent to list keys rather than checking that its socket
+# exists. The socket file outlives the app that served it -- quit 1Password and
+# ~/.1password/agent.sock is still there, refusing connections -- so existence
+# says nothing about whether anything is listening, and `test -S` selects a
+# dead agent as readily as a live one.
+#
+# ssh-add exits 2 when it cannot reach the agent and 1 when it reached one that
+# holds no keys, so only 2 means "not usable". The 1 case is a locked
+# 1Password, which is still the right identity to use: it prompts and unlocks.
+# timeout covers an agent that accepts the connection and then does not answer,
+# and its 124 falls through to the on-disk key like any other failure.
+Match exec "SSH_AUTH_SOCK=%d/.1password/agent.sock timeout 2 ssh-add -l >/dev/null 2>&1 || [ $? -eq 1 ]"
 	IdentityAgent ~/.1password/agent.sock
 
 Host *

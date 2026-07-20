@@ -35,13 +35,18 @@ module_checks() {
 
   local sock="$HOME/.1password/agent.sock" key="$HOME/.ssh/id_rsa"
   if [[ -S "$sock" ]]; then
+    # ssh-add exits 2 when it cannot reach the agent, which under doctor.sh's
+    # pipefail is the status of the whole pipeline and would abort this module
+    # before it reported anything -- exactly when its output is most wanted.
     local keys
-    keys="$(SSH_AUTH_SOCK="$sock" ssh-add -l 2>/dev/null | wc -l)"
+    keys="$(SSH_AUTH_SOCK="$sock" ssh-add -l 2>/dev/null | wc -l)" || keys=0
     if (( keys > 0 )); then
       check_ok "1Password agent" "$keys key(s) offered"
     else
-      check_warn "1Password agent" "socket present but offers no keys" \
-        "unlock 1Password, or enable its SSH agent"
+      # The socket file outlives the app that served it, so this covers a dead
+      # agent as well as a live one holding nothing.
+      check_warn "1Password agent" "$sock is not answering with any keys" \
+        "start and unlock 1Password, or enable its SSH agent"
     fi
   elif [[ -f "$key" ]]; then
     mode="$(stat -c %a "$key")"
