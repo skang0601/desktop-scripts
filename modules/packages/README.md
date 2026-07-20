@@ -26,6 +26,7 @@ An app with more to say than fits this table has a README beside its script.
 | steam | Flatpak | preinstalled on Bazzite, so usually a no-op |
 | jetbrains-toolbox | tarball | bootstraps to `~/.local/bin`, then self-updates |
 | [ollama](apps.d/ollama) | tarball | brew's bottle has no CUDA; auto-pins to the GPU not driving the display |
+| [searxng](apps.d/searxng) | podman quadlet | local metasearch on loopback; web-search backend for open-webui and gptel |
 | [open-webui](apps.d/open-webui) | podman quadlet | browser front end for ollama at ai.localhost:1234; published only as an image |
 
 ## Install strategy

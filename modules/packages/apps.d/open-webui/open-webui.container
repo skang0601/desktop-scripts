@@ -35,6 +35,19 @@ Environment=OLLAMA_BASE_URL=http://127.0.0.1:11434
 # every container recreate would otherwise roll the key and log the user out.
 Environment=WEBUI_SECRET_KEY_FILE=/app/backend/data/.webui_secret_key
 
+# Web search through the local searxng, which needs no API key and keeps the
+# queries on this machine. Off by default upstream, hence the explicit enable.
+# Reached over the host's loopback, which searxng publishes its port on.
+Environment=ENABLE_WEB_SEARCH=true
+Environment=WEB_SEARCH_ENGINE=searxng
+Environment=SEARXNG_QUERY_URL=http://127.0.0.1:8888/search
+
+# Python in the browser's WASM sandbox, which has no access to this host, its
+# filesystem or its network. That isolation is the reason to prefer pyodide
+# over the jupyter engine, which is a real kernel with real reach.
+Environment=ENABLE_CODE_INTERPRETER=true
+Environment=CODE_INTERPRETER_ENGINE=pyodide
+
 [Service]
 Restart=on-failure
 

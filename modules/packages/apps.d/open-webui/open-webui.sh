@@ -35,11 +35,31 @@ unit_active() {
   [[ "$(systemctl --user is-active open-webui.service 2>/dev/null)" == active ]]
 }
 
+# Asserted rather than only reported: the symlink path stays identical when the
+# .container's contents change, and systemd keeps running the unit generated
+# from the old one, so the bound address is what says which version is live.
+listening_on_loopback() {
+  local listen
+  listen="$(ss -Hltn "sport = :$(port)" 2>/dev/null | awk '{print $4}' | head -1)"
+  [[ -n "$listen" ]] && [[ "$listen" == 127.0.0.1:* || "$listen" == "[::1]:"* ]]
+}
+
 app_check() {
   [[ "$(readlink -f "$QUADLET" 2>/dev/null)" == "$(readlink -f "$(QUADLET_SRC)")" ]] \
     && [[ -n "$(model)" ]] \
     && grep -q "DEFAULT_MODELS=$(model)" "$ENVFILE" 2>/dev/null \
-    && unit_active
+    && unit_active \
+    && listening_on_loopback \
+    && web_search_wired
+}
+
+# The searxng URL lives in the quadlet, so this is the cheap way to notice that
+# the running container predates it being added.
+web_search_wired() {
+  local cid
+  cid="$(podman ps --filter "ancestor=$(image)" --format '{{.ID}}' 2>/dev/null | head -1)"
+  [[ -n "$cid" ]] || return 1
+  podman exec "$cid" printenv WEB_SEARCH_ENGINE 2>/dev/null | grep -qx searxng
 }
 
 # DEFAULT_MODELS seeds a persisted setting rather than pinning it, so a model
@@ -55,9 +75,10 @@ write_envfile() {
 }
 
 app_install() {
-  # ollama is what this is a front end for, and app order alone does not
-  # guarantee it ran first.
+  # ollama is what this is a front end for, and searxng backs its web search.
+  # App order alone does not guarantee either ran first.
   require_app ollama
+  require_app searxng
 
   run mkdir -p "$DATA"
   link_config "$(QUADLET_SRC)" "$QUADLET"
@@ -112,13 +133,20 @@ app_checks() {
       "systemctl --user start open-webui.service"
   fi
 
+  if web_search_wired; then
+    check_ok "open-webui web search" "searxng"
+  else
+    check_fail "open-webui web search" "container is not wired to searxng" \
+      "./modules/packages/install.sh open-webui"
+  fi
+
   # Bound to loopback deliberately; a listener on any other address means the
   # HOST= line stopped taking effect and the UI is reachable from the LAN.
   local listen
   listen="$(ss -Hltn "sport = :$(port)" 2>/dev/null | awk '{print $4}' | head -1)"
   if [[ -z "$listen" ]]; then
     check_warn "open-webui" "nothing listening on $(port)"
-  elif [[ "$listen" == 127.0.0.1:* || "$listen" == "[::1]:"* ]]; then
+  elif listening_on_loopback; then
     check_ok "open-webui" "$(ui)"
   else
     check_fail "open-webui" "listening on $listen, not loopback" \

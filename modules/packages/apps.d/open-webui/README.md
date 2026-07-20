@@ -61,6 +61,19 @@ than trusting that the variable still works.
   container's `start.sh` generates the key into `/app/backend`, which is *not*
   the volume, so every recreate would roll it and log the user out.
 
+## Web search and code execution
+
+Web search goes to the local [searxng](../searxng), so there is no API key and
+the queries stay on this machine. `ENABLE_WEB_SEARCH` is off upstream by
+default, hence the explicit enable, and `SEARXNG_QUERY_URL` points at the port
+searxng publishes on the host's loopback, which this container shares.
+
+The code interpreter uses the `pyodide` engine: Python compiled to WASM running
+in the *browser*, with no access to this host, its filesystem or its network.
+The alternative `jupyter` engine is a real kernel with real reach, and is not
+used. `app_checks` confirms the running container is actually wired to searxng,
+since the quadlet changing does not by itself restart anything.
+
 ## Auth
 
 Left on, which is the default. The first account created becomes the admin
