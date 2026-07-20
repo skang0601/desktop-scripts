@@ -18,26 +18,46 @@
 -->
 
 <style>
-  /* Light is sepia rather than white: this is a page you read, and the paper
-     tone is easier to sit with than a lit panel. Themes are declared three
-     times over -- the default follows the system, and [data-theme] pins it
-     when the reader has chosen, which has to win in both directions. */
-  :root, :root[data-theme="sepia"] {
+  /* Solarized (Ethan Schoonover). The two variants share one set of accent
+     hues and differ only in the base tones, which is the whole point of the
+     scheme -- ok/warn/fail keep the same meaning in both.
+
+       base03 #002b36   base02 #073642   base01 #586e75   base00 #657b83
+       base0  #839496   base1  #93a1a1   base2  #eee8d5   base3  #fdf6e3
+
+     Cards take the "background" role (base3 / base03) and the page takes
+     "background highlights" (base2 / base02), so a card reads as raised.
+
+     Text is shifted one step toward contrast from the documented roles: the
+     spec puts secondary content at base0 on light, which measures 2.9:1 on
+     base3 and is not readable for the detail column that carries paths and
+     versions. Labels take the emphasized tone and details the body tone, which
+     measures 5.0:1 and 4.1:1 on light, 5.6:1 and 4.7:1 on dark.
+
+     The accents are canonical and stay that way. On light they measure 3.0:1,
+     which is below AA for small text -- a known cost of Solarized's accents on
+     base3, and tolerable here only because the badge spells the status out in
+     words as well as colour. Do not "fix" it by inventing off-palette hues;
+     either accept it or change scheme.
+
+     Themes are declared three times: the default follows the system, and
+     [data-theme] pins it, which has to win in both directions. */
+  :root, :root[data-theme="light"] {
     color-scheme: light;
-    --bg: #f2e9d8; --fg: #3b3229; --muted: #7c6a53; --card: #fbf5e7; --line: #e0d3ba;
-    --ok: #3f6f3a; --warn: #8a6410; --fail: #a4382a;
+    --bg: #eee8d5; --fg: #586e75; --muted: #657b83; --card: #fdf6e3; --line: #ddd6c1;
+    --ok: #859900; --warn: #b58900; --fail: #dc322f;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme]) {
       color-scheme: dark;
-      --bg: #17171a; --fg: #e8e8e6; --muted: #9a9a95; --card: #1f1f23; --line: #2e2e34;
-      --ok: #6fcf97; --warn: #e0b341; --fail: #f2836b;
+      --bg: #073642; --fg: #93a1a1; --muted: #839496; --card: #002b36; --line: #0d4753;
+      --ok: #859900; --warn: #b58900; --fail: #dc322f;
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --bg: #17171a; --fg: #e8e8e6; --muted: #9a9a95; --card: #1f1f23; --line: #2e2e34;
-    --ok: #6fcf97; --warn: #e0b341; --fail: #f2836b;
+    --bg: #073642; --fg: #93a1a1; --muted: #839496; --card: #002b36; --line: #0d4753;
+    --ok: #859900; --warn: #b58900; --fail: #dc322f;
   }
   .head { display: flex; align-items: flex-start; gap: 1rem; }
   .head h1 { flex: 1; }
@@ -101,7 +121,7 @@
 <main>
   <div class="head">
     <h1>desktop-scripts state</h1>
-    <button id="theme" type="button" title="sepia / dark / follow system"></button>
+    <button id="theme" type="button" title="solarized light / dark / follow system"></button>
   </div>
   <div class="sub" id="sub"></div>
   <div class="tiles" id="tiles"></div>
@@ -123,7 +143,7 @@
 
   // Three states, not two: "system" has to be reachable again after choosing,
   // otherwise the first click permanently opts out of following the desktop.
-  const THEMES = ["system", "sepia", "dark"];
+  const THEMES = ["system", "light", "dark"];
   const button = document.getElementById("theme");
   const applyTheme = (name) => {
     if (name === "system") document.documentElement.removeAttribute("data-theme");
