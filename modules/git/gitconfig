@@ -50,8 +50,12 @@
 # 	signingkey = ssh-ed25519 AAAA...
 # [gpg]
 # 	format = ssh
+# op-ssh-sign ships inside the desktop app, not the CLI, so it has no /usr/bin
+# entry on any layout. On an atomic system the app runs in a container and the
+# packages module exports a wrapper to ~/.local/bin; a native install has it at
+# /opt/1Password/op-ssh-sign.
 # [gpg "ssh"]
-# 	program = /usr/bin/op-ssh-sign
+# 	program = ~/.local/bin/op-ssh-sign
 # [commit]
 # 	gpgsign = true
 [filter "lfs"]

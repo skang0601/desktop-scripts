@@ -4,8 +4,7 @@ APP_NAME=claude-desktop
 # Fedora and RHEL are not supported yet. Rather than reach for a third-party
 # repackage, run the official .deb in an Ubuntu distrobox and export the
 # launcher onto the host: the app is first-party, and nothing is layered.
-BOX=ubuntu
-BOX_IMAGE=quay.io/toolbx/ubuntu-toolbox:24.04
+BOX="$DEB_BOX"
 
 # Published at https://code.claude.com/docs/en/desktop-linux. The repo is only
 # added after the downloaded key matches this, so a substituted key fails the
@@ -22,10 +21,7 @@ app_check() { [[ -f "$EXPORTED" ]]; }
 app_install() {
   have distrobox || { warn "distrobox not available; it ships with Bazzite"; return 1; }
 
-  if ! distrobox_exists "$BOX"; then
-    say "creating the $BOX distrobox"
-    run distrobox create --name "$BOX" --image "$BOX_IMAGE" --yes
-  fi
+  distrobox_ensure "$BOX" "$DEB_BOX_IMAGE"
 
   say "installing claude-desktop from Anthropic's apt repository inside $BOX"
   if dry; then

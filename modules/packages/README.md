@@ -12,14 +12,14 @@ Apps and tooling, installed only when missing.
 
 | App | Method | Notes |
 | --- | --- | --- |
-| 1password | 1Password's RPM repo | desktop app and the `op` CLI; Flatpak cannot serve the SSH agent |
+| 1password | brew cask from `ublue-os/tap` (rpm on traditional) | desktop app + `op`; the SSH agent socket is the point (ADR 0005) |
 | emacs | brew / dnf | native, not Flatpak; includes Doom and its config |
 | go | brew / dnf | Fedora calls it `golang` |
 | rust | brew / dnf | `rustup`, not a fixed toolchain; keg-only, so [shell](../shell) puts its shims on PATH |
 | zig | brew / dnf | |
 | claude-code | vendor installer | lands in `~/.local/bin`, no root |
 | claude-desktop | official apt repo, in a distrobox | Anthropic ship Debian/Ubuntu only |
-| dev-box | Fedora toolbox | `-devel` headers for building against system libraries, without layering |
+| dev-box | Fedora toolbox | `-devel` headers for building against system libraries, without layering (ADR 0005) |
 | steam | Flatpak | preinstalled on Bazzite, so usually a no-op |
 | jetbrains-toolbox | tarball | bootstraps to `~/.local/bin`, then self-updates |
 
@@ -32,8 +32,11 @@ where layering costs a reboot and can block a rebase (ADR 0005):
    ships it; on a traditional system it's usually absent, so dnf takes over.
 2. **dnf** on traditional systems.
 3. **Flatpak** for GUI apps. Flathub is preconfigured on Bazzite.
-4. **Vendor installers** where nothing else is published, kept to `$HOME`.
-5. **`rpm-ostree` layering** only as a last resort, with a loud reboot warning.
+4. **distrobox** where the host cannot package the software, or the dependency
+   is only needed at build time. A brew cask packaging the vendor's own build
+   beats a container when one exists.
+5. **Vendor installers** where nothing else is published, kept to `$HOME`.
+6. **`rpm-ostree` layering** only as a last resort, with a loud reboot warning.
 
 Two apps deliberately skip Flatpak:
 
@@ -46,8 +49,21 @@ state the SSH agent does not work under Flatpak, and the manifest confirms it:
 no `--filesystem=home`, and `$HOME` redirected into the sandbox, so
 `~/.1password/agent.sock` cannot appear on the host. The [ssh](../ssh) module
 depends on that socket for every git-over-ssh operation, so the Flatpak would
-break authentication outright. It layers on atomic systems instead -- one of the
-few cases that justifies it.
+break authentication outright.
+
+It comes from `ublue-os/tap` instead, which packages 1Password's own Linux
+tarball. The rpm cannot be layered at all -- its `%post` aborts under
+rpm-ostree -- so brew is the remaining route that puts the app on the host,
+where the agent socket, `op`, the polkit policy and browser integration all
+work without special handling (ADR 0005).
+
+Trusting that tap is a real decision: its casks `sudo` to install a polkit
+policy into `/etc/polkit-1/actions`, create the `onepassword` group, and set
+setuid/setgid bits. The app names the tap rather than trusting taps in general.
+
+Running the app in the `ubuntu` box was tried and works for the agent, but `op`
+does not survive the container boundary in either direction, and the polkit,
+autostart and browser paths each need patching up by hand.
 
 ## Building against system libraries
 
@@ -128,9 +144,13 @@ standing upstream bug stops reading as a fresh problem on every run:
 ```sh
 app_blocked() {
   is_atomic || return 1
-  echo "desktop app cannot layer on ostree until 1Password fixes its %post"
+  echo "<what cannot work here and why>"
+  echo "<the upstream thread that will say when it changes>"
 }
 ```
+
+No app declares one at present. 1Password did, until its `%post` failure stopped
+being a dead end and became a reason to install it from a brew cask instead.
 
 Helpers available: `install_cli`, `install_rpm`, `install_flatpak`,
 `flatpak_installed`, `require_app`, `brew_split_shared_dir`, `brew_relink`,

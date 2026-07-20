@@ -1,7 +1,55 @@
 APP_NAME=1password
 
-# 1Password's own RPM repo. Both the desktop app and the `op` CLI come from it;
-# neither is in Fedora's repos, and the Flathub build cannot serve the SSH agent.
+# The desktop app's value here is the SSH agent socket at ~/.1password/agent.sock,
+# which the ssh module points IdentityAgent at. Everything below follows from
+# needing that socket to appear on the host.
+AGENT_SOCK="$HOME/.1password/agent.sock"
+
+# ublue-os package 1Password's own Linux tarball from downloads.1password.com
+# rather than rebuilding it, so this is the vendor's binary by a different route
+# (ADR 0005). The two alternatives both fail on an atomic system: the rpm's
+# %post aborts under rpm-ostree, and the Flatpak has no --filesystem=home, so
+# its agent socket is created inside a redirected $HOME and never reaches the
+# ssh module.
+TAP=ublue-os/tap
+GUI_CASK="$TAP/1password-gui-linux"
+CLI_CASK="$TAP/1password-cli-linux"
+
+# op and the desktop app have to come from the same install. The app integration
+# refuses a CLI it cannot match to the running app -- a brew op against a
+# container app, or the reverse, fails with "connecting to desktop app".
+app_check() { have 1password && have op; }
+
+app_install() {
+  if ! have brew; then
+    # No brew means a traditional system, where the rpm installs cleanly.
+    add_1password_repo
+    have op || install_rpm 1password-cli
+    have 1password || install_rpm 1password
+    return 0
+  fi
+
+  run brew tap "$TAP"
+  # Casks from an untrusted tap are refused outright. Trusting one lets brew run
+  # its Ruby, and these casks use sudo: they install a polkit policy to
+  # /etc/polkit-1/actions, create the onepassword group, and set the setgid bit
+  # on 1Password-BrowserSupport and setuid on chrome-sandbox. That is more than
+  # a user-level install, and it is the reason the tap is named here rather than
+  # trusted blanket-wise elsewhere.
+  say "trusting $TAP; its casks run sudo for the polkit policy and setuid bits"
+  run brew trust "$TAP"
+
+  # Prompts for sudo. The repo's installers call sudo inline, so this is a
+  # normal password prompt rather than something to work around.
+  have 1password || run brew install --cask "$GUI_CASK"
+  have op || run brew install --cask "$CLI_CASK"
+
+  say "sign in, then enable Settings -> Developer -> 'Use the SSH agent'"
+  say "and 'Integrate with 1Password CLI' for op"
+}
+
+# 1Password's own RPM repo, for systems without brew. Neither the desktop app
+# nor `op` is in Fedora's repos.
 #
 # gpgkey is written unquoted, unlike 1Password's own snippet: rpm-ostree has
 # been reported to fail with "Signing key not found" on the quoted form
@@ -24,51 +72,48 @@ add_1password_repo() {
   fi
 }
 
-app_check() { have 1password && have op; }
-
-# Only the desktop app is blocked; `op` installs fine, which is why app_install
-# puts the CLI in before consulting this.
-# Reason first, then the upstream thread to watch: the block lifts when
-# 1Password ships the fix, and nothing here will tell us that it has.
-app_blocked() {
-  is_atomic || return 1
-  echo "desktop app cannot layer on ostree until 1Password fixes its %post"
-  echo "https://www.1password.community/1password-at-home-31/update-to-fedora-silverblue-fails-25075"
-}
-
-app_install() {
-  add_1password_repo
-
-  # The CLI is installed before the desktop app because the desktop app calls
-  # `blocked` on ostree, and that exits the whole app subshell. `op` carries no
-  # broken scriptlet and layers fine, so the reverse order would strand the ssh
-  # module without it on exactly the systems that already cannot get the agent
-  # socket.
-  have op || install_rpm 1password-cli
-
+app_checks() {
   if have 1password; then
-    return 0
+    check_ok "1password app" "$(command -v 1password)"
+  else
+    check_warn "1password app" "not installed" "./modules/packages/install.sh 1password"
   fi
 
-  # NOT the Flathub build, despite it being vendor-verified. 1Password's docs
-  # state the SSH agent does not work under Flatpak, and the manifest bears
-  # that out: no --filesystem=home, and $HOME is redirected into the sandbox,
-  # so ~/.1password/agent.sock can never appear on the host. The ssh module
-  # depends on that socket, so the Flatpak would break git over ssh.
-  # The desktop RPM cannot be layered as of 1Password 8.11 (2026-07): its %post
-  # runs `mkdir -p /usr/local/bin`, and on an ostree system /usr/local is a
-  # symlink into /var, which rpm-ostree's bwrap sandbox leaves unpopulated. The
-  # mkdir gets EEXIST on the dangling symlink and the scriptlet aborts, which
-  # rpm-ostree treats as fatal where dnf would only warn. 1Password have
-  # acknowledged it and are working on a fix with no timeline:
-  # https://www.1password.community/1password-at-home-31/update-to-fedora-silverblue-fails-25075
-  #
-  # `op` is already in by this point, so the agent socket is the only thing
-  # actually lost here.
-  local reason
-  if reason="$(app_blocked)"; then
-    blocked "1password: $reason"
+  # The socket is the point of the whole entry, and it is absent whenever the
+  # app is closed or the SSH agent setting was never turned on -- neither of
+  # which the installer can do anything about.
+  if [[ -S "$AGENT_SOCK" ]]; then
+    check_ok "1password ssh agent" "$AGENT_SOCK"
+  else
+    check_warn "1password ssh agent" "no socket; app closed or agent not enabled" \
+      "open 1Password, then Settings -> Developer -> 'Use the SSH agent'"
   fi
 
-  install_rpm 1password
+  local op_path
+  op_path="$(command -v op || true)"
+  if [[ -z "$op_path" ]]; then
+    check_warn "op cli" "not on PATH" "./modules/packages/install.sh 1password"
+  elif [[ "$op_path" == "$HOME/.local/bin/"* ]]; then
+    # A distrobox-exported wrapper left over from running the app in a
+    # container. op and the app have to be the same side of the container
+    # boundary, so this cannot reach an app installed on the host.
+    check_warn "op cli" "$op_path is a container wrapper; it cannot reach the host app" \
+      "rm $op_path && ./modules/packages/install.sh 1password"
+  elif rpm -q 1password-cli >/dev/null 2>&1; then
+    # Works against the brew app -- both are on the host, which is all the app
+    # integration requires. Layered rather than brewed is untidy against the
+    # ranking above, not broken, so it is not a warning.
+    check_ok "op cli" "$op_path (layered rpm; the $CLI_CASK cask would unlayer it)"
+  else
+    check_ok "op cli" "$op_path"
+  fi
+
+  # op-ssh-sign ships with the app rather than the CLI, and the git module's
+  # signing block resolves it through PATH.
+  if have op-ssh-sign; then
+    check_ok "op-ssh-sign" "$(command -v op-ssh-sign)"
+  else
+    check_warn "op-ssh-sign" "absent; git ssh commit signing would fail" \
+      "./modules/packages/install.sh 1password"
+  fi
 }

@@ -80,6 +80,28 @@ distrobox_exists() {
   distrobox list 2>/dev/null | awk -F'|' 'NR>1 {gsub(/ /,"",$2); print $2}' | grep -qx "$1"
 }
 
+# Vendors who ship .deb and nothing else share one box rather than each pulling
+# an image of its own (ADR 0005).
+DEB_BOX=ubuntu
+DEB_BOX_IMAGE=quay.io/toolbx/ubuntu-toolbox:24.04
+
+distrobox_ensure() {
+  local name="$1" image="$2"
+  shift 2
+  distrobox_exists "$name" && return 0
+  say "creating the $name distrobox from $image"
+  run distrobox create --name "$name" --image "$image" --yes "$@"
+}
+
+# distrobox mounts $HOME at the same path with the same uid, so a file the
+# container writes there is the same inode the host sees. That is the whole
+# reason an app whose value is a socket in $HOME can live in one (ADR 0005).
+in_distrobox() {
+  local name="$1"
+  shift
+  distrobox enter --name "$name" -- "$@"
+}
+
 # GUI apps. Flathub is preconfigured on Bazzite; on other systems it may not be.
 install_flatpak() {
   local id="$1"
