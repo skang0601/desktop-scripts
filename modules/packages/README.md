@@ -15,6 +15,7 @@ Apps and tooling, installed only when missing.
 | 1password | 1Password's RPM repo | desktop app and the `op` CLI; Flatpak cannot serve the SSH agent |
 | emacs | brew / dnf | native, not Flatpak; includes Doom and its config |
 | go | brew / dnf | Fedora calls it `golang` |
+| rust | brew / dnf | `rustup`, not a fixed toolchain; keg-only, so [shell](../shell) puts its shims on PATH |
 | zig | brew / dnf | |
 | claude-code | vendor installer | lands in `~/.local/bin`, no root |
 | claude-desktop | official apt repo, in a distrobox | Anthropic ship Debian/Ubuntu only |
@@ -107,8 +108,14 @@ app_blocked() {
 ```
 
 Helpers available: `install_cli`, `install_rpm`, `install_flatpak`,
-`flatpak_installed`, `require_app`, `blocked` from `lib.sh`; `have`, `run`,
-`dry`, `say`, `warn`, `is_atomic`, `link_config` from `../../lib/common.sh`.
+`flatpak_installed`, `require_app`, `brew_split_shared_dir`, `brew_relink`,
+`blocked` from `lib.sh`; `have`, `run`, `dry`, `say`, `warn`, `is_atomic`,
+`link_config` from `../../lib/common.sh`.
+
+An app needing a PATH entry adds it to [shell](../shell)'s `10-path.sh` rather
+than shipping a fragment of its own. Entries constrain each other -- rustup's
+shims have to beat brew's `bin` -- and that ordering is only reviewable while
+one file holds all of them.
 
 Anything doing more than a simple command -- pipes, redirects, heredocs -- must
 handle `--dry-run` itself with an explicit `if dry; then ... fi`, or the dry-run

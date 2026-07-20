@@ -26,6 +26,14 @@ duplicates:
 - `~/go/bin`, `~/.cargo/bin`, `~/.local/bin`, `~/bin`
 - Homebrew, via `brew shellenv`, which is how CLI tooling arrives on atomic
   systems (ADR 0005)
+- rustup's shims, `$HOMEBREW_PREFIX/opt/rustup/bin`
+
+Order is the point of keeping these in one file. Several entries only work in
+relation to another -- rustup's shims have to beat brew's own `bin`, which
+`brew shellenv` prepends -- and that is reviewable here in a way it would not be
+spread across fragments owned by different modules. So an entry lives here even
+when the thing it points at is installed by [packages](../packages): Doom, Go
+and rustup all arrive that way.
 
 JetBrains Toolbox is deliberately not here: it writes its own PATH line into
 `~/.bash_profile` and `~/.profile` on first run.

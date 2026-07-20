@@ -25,6 +25,13 @@ for _dir in /home/linuxbrew/.linuxbrew /opt/homebrew "$HOME/.linuxbrew"; do
   fi
 done
 
+# rustup is keg-only because it provides the same binaries as the rust formula,
+# so it only wins from ahead of brew's own bin, which shellenv above prepends.
+# $HOMEBREW_PREFIX/opt is `brew --prefix rustup` without a brew run per shell.
+if [[ -n ${HOMEBREW_PREFIX:-} ]]; then
+  _prepend_path "$HOMEBREW_PREFIX/opt/rustup/bin"
+fi
+
 unset _dir
 unset -f _prepend_path
 export PATH
