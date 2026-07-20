@@ -66,6 +66,42 @@ Containers are declared by apps in `modules/packages/apps.d/`, and two exist:
 `DEB_BOX` and `distrobox_ensure` live in `modules/packages/lib.sh` so several
 apps share one box rather than each pulling an image of its own.
 
+## Containers come in two shapes
+
+The ranking above is about *acquiring* software. A container that has to keep
+running is a second question, and distrobox is the wrong tool for it: it exists
+to share `$HOME` with an interactive shell, not to supervise a daemon.
+
+A long-running service takes a **podman quadlet** instead -- a `.container`
+file symlinked into `~/.config/containers/systemd/`, which podman's systemd
+generator turns into a `--user` service. Rootless, no root and state in `$HOME`,
+so it keeps what the ranking protects while podman owns the lifecycle, the
+image pull and the cleanup. The alternative, a hand-written unit wrapping
+`podman run`, means an `ExecStartPre`/`ExecStopPost` pair that has to stay
+correct through every failure mode.
+
+| Shape | Mechanism | For | Example |
+| --- | --- | --- | --- |
+| Interactive box | distrobox | a shell with the host's `$HOME` | `dev-box` |
+| Long-running service | podman quadlet | a daemon | `open-webui`, `searxng` |
+
+Two consequences are worth writing down, because both have already cost a
+debugging session:
+
+- **Quadlet units are generated, so they cannot be `systemctl --user enable`d.**
+  There is no unit file to link. The `[Install]` section inside the
+  `.container` is what the generator acts on.
+- **Editing a `.container` does not restart anything.** The symlink path is
+  unchanged, so an `app_check` comparing paths still passes while systemd keeps
+  running the unit generated from the old file. An app therefore asserts
+  something observable about the *running* container -- the address it is bound
+  to, the model it was told to use -- rather than only the files on disk.
+
+Configuration that the host must own is passed by `EnvironmentFile=`, which
+becomes `--env-file` and reaches inside the container. A systemd drop-in does
+not: it sets the variable on the `podman` process, where the application never
+sees it.
+
 ## How distrobox works
 
 The property everything rests on is that **distrobox is not a sandbox**. It runs

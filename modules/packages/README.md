@@ -49,13 +49,26 @@ one cannot deliver what the app exists for. [1password](apps.d/1password) and
 [emacs](apps.d/emacs) both skip Flatpak, and [ollama](apps.d/ollama) skips brew,
 each for a reason recorded in its own README.
 
-Containers cover two different shapes. `distrobox` is for interactive boxes that
-share `$HOME` -- see [dev-box](apps.d/dev-box). A long-running service instead
-takes a podman **quadlet**: a `.container` file symlinked into
-`~/.config/containers/systemd/`, which podman's systemd generator turns into a
-`--user` service. [open-webui](apps.d/open-webui) is the example. Quadlet units
-are generated, so they cannot be `systemctl --user enable`d; the `[Install]`
-section inside the `.container` file is what the generator acts on.
+Containers cover two different shapes (ADR 0005). `distrobox` is for
+interactive boxes that share `$HOME` -- see [dev-box](apps.d/dev-box). A
+long-running service instead takes a podman **quadlet**: a `.container` file
+symlinked into `~/.config/containers/systemd/`, which podman's systemd
+generator turns into a `--user` service.
+[open-webui](apps.d/open-webui) and [searxng](apps.d/searxng) are the examples.
+
+Three things about quadlets have each cost a debugging session, so they are
+worth knowing before writing the fourth:
+
+- They are **generated**, so they cannot be `systemctl --user enable`d. The
+  `[Install]` section inside the `.container` is what the generator acts on.
+- **Editing one restarts nothing.** The symlink path does not change, so an
+  `app_check` comparing paths still passes while systemd keeps running the unit
+  built from the old file. Assert something observable about the running
+  container instead -- the address it is bound to, the model it was given.
+- Host-derived configuration goes in via `EnvironmentFile=`, which becomes
+  `--env-file` and reaches inside the container. A systemd drop-in does not: it
+  sets the variable on the `podman` process, where the application never sees
+  it.
 
 ## Adding an app
 
