@@ -1,0 +1,26 @@
+# SearXNG overrides. use_default_settings keeps the image's ~3000-line
+# settings.yml as the base and replaces only what is listed here, so this file
+# does not have to track upstream's engine list.
+use_default_settings: true
+
+search:
+  # The image ships formats: [html]. Both consumers here ask for JSON --
+  # open-webui's searxng engine sends format=json, and the gptel tool curls the
+  # same endpoint -- and without this SearXNG answers 403 to every one of them.
+  formats:
+    - html
+    - json
+
+server:
+  # Overwritten by $SEARXNG_SECRET from the generated env file; named here only
+  # so a missing variable fails loudly rather than silently running on the
+  # image's placeholder.
+  secret_key: "overridden-by-SEARXNG_SECRET"
+
+  # Off by default in the image and kept off deliberately: the limiter's bot
+  # detection rejects non-browser clients, which is exactly what both consumers
+  # are. Safe only because the service is bound to loopback.
+  limiter: false
+
+ui:
+  static_use_hash: true

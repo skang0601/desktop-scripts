@@ -1,0 +1,39 @@
+[Unit]
+Description=SearXNG
+
+[Container]
+# Pinned by digest: upstream publishes a rolling `latest` and no version tags,
+# so the digest is the only thing that names a specific build.
+Image=docker.io/searxng/searxng@sha256:b8ca38ba06eea544d7555e88321e212ddc0d5c3c7de055419cfb2e5c6bf30812
+
+# The file, not the directory it lives in. The image's entrypoint chowns its
+# config directory to searxng:searxng, and under rootless podman that lands on
+# a mapped subuid the host user can no longer write -- so mounting the
+# directory makes the next install fail with EPERM on its own settings file.
+# Mounting one file read-only leaves the directory the container's problem and
+# the file ours.
+#
+# Copied rather than symlinked by the installer: a symlink into the repo
+# resolves to a path that does not exist inside the container.
+Volume=%h/.local/share/searxng/settings.yml:/etc/searxng/settings.yml:ro,Z
+
+# Published to loopback rather than run on the host's network namespace, which
+# is what open-webui does. The difference matters here: this image serves via
+# granian, which ignores SEARXNG_BIND_ADDRESS and listens on all interfaces
+# whatever that variable says, so under Network=host it lands on the LAN.
+# Publishing puts the loopback restriction in podman, where the application
+# cannot override it, and open-webui still reaches it -- it shares the host's
+# loopback.
+PublishPort=127.0.0.1:8888:8888
+Environment=SEARXNG_PORT=8888
+Environment=SEARXNG_BASE_URL=http://127.0.0.1:8888/
+
+# $SEARXNG_SECRET. Generated once by the installer rather than committed, and
+# kept out of the repo for the same reason any key is.
+EnvironmentFile=%h/.local/share/searxng/secret.env
+
+[Service]
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
