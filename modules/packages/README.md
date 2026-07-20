@@ -61,16 +61,30 @@ app_install() { install_cli ripgrep rg; }   # (fedora_name, brew_name)
 `app_check` gates the install, which is what makes re-running a no-op. Each file
 is sourced in its own subshell, so definitions can't leak between apps.
 
-Files run in filename order. An app that needs another one first calls
-`require_app <name>` rather than relying on that order.
+An app that ships files of its own takes a directory instead, named for the app
+and holding a script of the same name:
+
+```
+apps.d/ripgrep.sh          # script only
+apps.d/emacs/emacs.sh      # script plus the files it installs
+apps.d/emacs/doom/
+```
+
+Both forms are one app with one `APP_NAME`, and `./install.sh emacs` names
+either. Inside the script, **`$APP_DIR` is the directory its own file lives in**
+-- use it to reach bundled files, so config sits beside the code that installs
+it rather than elsewhere in the module.
+
+Apps run in name order. One that needs another first calls `require_app <name>`
+rather than relying on that order.
 
 Write `app_check` against every location the app might already occupy, not just
 the one this script would install to. Doom, for instance, lives at
 `~/.config/emacs` now but `~/.emacs.d` still shadows it.
 
-Helpers available: `install_cli`, `install_flatpak`, `flatpak_installed` from
-`lib.sh`; `have`, `run`, `dry`, `say`, `warn`, `is_atomic` from
-`../../lib/common.sh`.
+Helpers available: `install_cli`, `install_rpm`, `install_flatpak`,
+`flatpak_installed`, `require_app`, `blocked` from `lib.sh`; `have`, `run`,
+`dry`, `say`, `warn`, `is_atomic`, `link_config` from `../../lib/common.sh`.
 
 Anything doing more than a simple command -- pipes, redirects, heredocs -- must
 handle `--dry-run` itself with an explicit `if dry; then ... fi`, or the dry-run
@@ -79,9 +93,9 @@ output will lie about what it does.
 ## Doom Emacs
 
 `emacs` installs Emacs, Doom, Doom's dependencies, and the tracked config in
-`doom/`, which is symlinked into place so edits land in the repo.
+`apps.d/emacs/doom/`, which is symlinked into place so edits land in the repo.
 
-Dependencies come from the modules enabled in `doom/init.el`: `git`, `ripgrep`
+Dependencies come from the modules enabled in `apps.d/emacs/doom/init.el`: `git`, `ripgrep`
 and `fd` for `:completion` and `:tools lookup`, and `shellcheck` for
 `:checkers syntax` against `:lang sh`. Adding a module may add a dependency --
 `doom doctor` will say so.

@@ -27,14 +27,12 @@ done
 dry && say "dry run -- nothing will be installed"
 
 if [[ ${#ARGS[@]} -gt 0 ]]; then
-  FILES=()
-  for name in "${ARGS[@]}"; do
-    f="$MODULE/apps.d/$name.sh"
-    [[ -f "$f" ]] || { warn "no such app: $name"; exit 2; }
-    FILES+=("$f")
+  NAMES=("${ARGS[@]}")
+  for name in "${NAMES[@]}"; do
+    app_path "$name" >/dev/null || { warn "no such app: $name"; exit 2; }
   done
 else
-  mapfile -t FILES < <(find "$MODULE/apps.d" -name '*.sh' | sort)
+  mapfile -t NAMES < <(app_names)
 fi
 
 LAYERED_MARKER="$(mktemp -u)"
@@ -42,7 +40,8 @@ export LAYERED_MARKER
 RESULTS="$(mktemp)"
 trap 'rm -f "$LAYERED_MARKER" "$RESULTS"' EXIT
 
-for f in "${FILES[@]}"; do
+for name in "${NAMES[@]}"; do
+  f="$(app_path "$name")"
   # errexit off around the app so a failing install is one bad line in the
   # summary rather than the end of the run: the remaining apps are unrelated
   # and there is no reason a broken package should hold them hostage.
@@ -52,6 +51,8 @@ for f in "${FILES[@]}"; do
     # files. errexit back on inside it, since the parent has it off and an
     # app_install that fails halfway must not carry on to report success.
     set -e
+    APP_DIR="$(dirname "$f")"
+    # shellcheck source=/dev/null
     source "$f"
     if app_check; then
       skip "$APP_NAME"
@@ -65,9 +66,8 @@ for f in "${FILES[@]}"; do
   rc=$?
   set -e
   # The app records its own outcome on the paths that work, where APP_NAME is
-  # in scope; a nonzero exit means it didn't get that far. apps.d filenames
-  # match their APP_NAME, so the basename names it just as well.
-  name="$(basename "$f" .sh)"
+  # in scope; a nonzero exit means it didn't get that far. An app's name matches
+  # its APP_NAME, so it names the failure just as well.
   if (( rc == BLOCKED )); then
     printf 'blocked\t%s\n' "$name" >>"$RESULTS"
   elif (( rc != 0 )); then

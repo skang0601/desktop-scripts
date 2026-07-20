@@ -23,7 +23,13 @@ emacs_gui() {
   emacs -Q --batch --eval '(kill-emacs (if (fboundp (quote x-create-frame)) 0 1))' 2>/dev/null
 }
 
-app_check() { emacs_gui && doom_installed && [[ -L "$(doomdir)" ]]; }
+# The config link is compared by target, not by existence: -L alone is true of a
+# link left dangling by a moved or renamed source, which is exactly the state
+# that needs relinking.
+app_check() {
+  emacs_gui && doom_installed \
+    && [[ "$(readlink -f "$(doomdir)" 2>/dev/null)" == "$(readlink -f "$APP_DIR/doom")" ]]
+}
 
 app_install() {
   # Distro package rather than brew: only the RPM is a GUI build (see
@@ -60,7 +66,7 @@ app_install() {
   fi
 
   # Tracked config, symlinked so edits land in the repo.
-  link_config "$MODULE/doom" "$(doomdir)" || return 1
+  link_config "$APP_DIR/doom" "$(doomdir)" || return 1
 
   # Cloning Doom and linking the config need no emacs, but byte-compiling the
   # package tree does. A layered emacs isn't on PATH until the reboot, so on a
@@ -77,6 +83,6 @@ app_install() {
     # Doom is already set up; the config just changed underneath it.
     run "$(doom_bin)" sync
   fi
-  say "run 'doom sync' after editing $MODULE/doom"
+  say "run 'doom sync' after editing $APP_DIR/doom"
   say "the shell module puts Doom's bin/ on PATH"
 }

@@ -58,10 +58,56 @@ flatpak_installed() {
   flatpak info "$1" >/dev/null 2>&1
 }
 
-# Install another app.d entry on demand. apps.d runs in filename order, so an
-# app that depends on another cannot rely on ordering alone.
-require_app() {
+# An app is a bare apps.d/<name>.sh, or apps.d/<name>/<name>.sh when it carries
+# files of its own. Both forms are one app with one APP_NAME; the directory
+# exists so config the app installs can sit beside the script that installs it
+# rather than elsewhere in the module.
+app_path() {
   local name="$1"
-  ( source "$MODULE/apps.d/$name.sh"
+  if [[ -f "$MODULE/apps.d/$name.sh" ]]; then
+    printf '%s\n' "$MODULE/apps.d/$name.sh"
+  elif [[ -f "$MODULE/apps.d/$name/$name.sh" ]]; then
+    printf '%s\n' "$MODULE/apps.d/$name/$name.sh"
+  else
+    return 1
+  fi
+}
+
+# Every app exactly once, in the order they run. A directory without a matching
+# script is not an app -- it is someone's leftover -- so it is skipped rather
+# than reported as broken.
+app_names() {
+  local f name
+  {
+    for f in "$MODULE"/apps.d/*.sh; do
+      [[ -f "$f" ]] && basename "$f" .sh
+    done
+    for f in "$MODULE"/apps.d/*/; do
+      name="$(basename "$f")"
+      [[ -f "$f$name.sh" ]] && printf '%s\n' "$name"
+    done
+  } 2>/dev/null | sort -u
+}
+
+# Source an app and run a function from it, with APP_DIR pointing at the
+# directory its script lives in. Subshelled so app_check/app_install cannot
+# leak between apps.
+with_app() {
+  local name="$1" fn="$2" f
+  f="$(app_path "$name")" || return 2
+  ( APP_DIR="$(dirname "$f")"
+    # shellcheck source=/dev/null
+    source "$f"
+    "$fn" )
+}
+
+# Install another apps.d entry on demand. apps run in name order, so an app that
+# depends on another cannot rely on ordering alone.
+require_app() {
+  local name="$1" f
+  f="$(app_path "$name")" || { warn "no such app: $name"; return 1; }
+  ( APP_DIR="$(dirname "$f")"
+    # shellcheck source=/dev/null
+    source "$f"
     app_check || { say "installing dependency $APP_NAME"; app_install; } )
 }
