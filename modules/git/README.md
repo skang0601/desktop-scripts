@@ -19,6 +19,7 @@ edits the tracked file directly.
 | `diff.algorithm = histogram` | more readable diffs on reordered code |
 | `rerere.enabled` | remembers conflict resolutions; pays for itself on long rebases |
 | `fetch.prune` | drop remote-tracking branches that no longer exist |
+| `core.editor = emacs -nw` | matches `$EDITOR` from [../shell](../shell); not `emacsclient`, which would need a server running |
 
 ## Commit signing
 

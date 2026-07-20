@@ -36,7 +36,10 @@ unset _dir
 unset -f _prepend_path
 export PATH
 
-if command -v emacsclient >/dev/null; then
-  export EDITOR='emacsclient -nw -a vi'
+# emacs, not emacsclient: emacsclient needs a server, which is a standing
+# background session this setup does without. The cost is Doom's startup per
+# invocation; the gain is no daemon to be down and no fallback editor to land in.
+if command -v emacs >/dev/null; then
+  export EDITOR='emacs -nw'
   export VISUAL="$EDITOR"
 fi

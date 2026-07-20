@@ -9,7 +9,10 @@
 	defaultBranch = main
 
 [core]
-	editor = emacsclient -nw -a vi
+	# emacs, not emacsclient: emacsclient needs a server, which is a standing
+	# background session this setup does without. Matches $EDITOR from the shell
+	# module, so a commit message opens the same editor as anything else.
+	editor = emacs -nw
 
 [pull]
 	rebase = true

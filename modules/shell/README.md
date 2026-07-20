@@ -17,6 +17,15 @@ Fragments are numbered to fix their order.
 | --- | --- |
 | `10-path.sh` | PATH entries and `$EDITOR` |
 
+## Editor
+
+`$EDITOR` and `$VISUAL` are `emacs -nw`, and [git](../git) sets `core.editor` to
+match. Deliberately not `emacsclient`: that needs a server, which is a standing
+background session this setup does without. The trade is Doom's startup on every
+invocation, against never having to care whether a daemon is up -- and against
+an `emacsclient -a <other>` fallback, which on a machine with no server running
+means every commit is edited in `<other>` while the config still claims emacs.
+
 ## PATH
 
 Added when the directory exists, guarded so re-sourcing doesn't accumulate
