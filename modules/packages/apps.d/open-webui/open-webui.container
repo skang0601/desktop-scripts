@@ -1,0 +1,42 @@
+[Unit]
+Description=Open WebUI
+After=ollama.service
+Wants=ollama.service
+
+[Container]
+Image=ghcr.io/open-webui/open-webui:v0.10.2
+Volume=%h/.local/share/open-webui:/app/backend/data:Z
+
+# Which model to default to is hardware-derived, so it cannot be a literal
+# here. This maps to --env-file, which reaches inside the container; a systemd
+# drop-in does not -- it would set the variable on the podman process, where
+# the app never sees it. The installer writes the file.
+EnvironmentFile=%h/.local/share/open-webui/model.env
+
+# Host networking because ollama binds 127.0.0.1 only. A bridge network reaches
+# the host through a gateway address ollama is not listening on, and the fix for
+# that would be widening ollama to 0.0.0.0 -- exposing the model server to the
+# LAN to avoid exposing the UI to it.
+Network=host
+
+# Host networking also means this binds the host's interfaces directly, and the
+# image defaults to 0.0.0.0. Without this the UI is on the LAN.
+Environment=HOST=127.0.0.1
+# 8080 is busy enough on a desktop to be worth avoiding. Note 1234 is LM
+# Studio's default server port, if that ever lands on this machine.
+Environment=PORT=1234
+
+# Set explicitly: the image ships OLLAMA_BASE_URL=/ollama, which it rewrites to
+# host.docker.internal under ENV=prod, and leaving it empty makes it probe for a
+# Docker Model Runner on 12434 instead.
+Environment=OLLAMA_BASE_URL=http://127.0.0.1:11434
+
+# start.sh writes this to /app/backend, which is not the mounted volume, so
+# every container recreate would otherwise roll the key and log the user out.
+Environment=WEBUI_SECRET_KEY_FILE=/app/backend/data/.webui_secret_key
+
+[Service]
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
