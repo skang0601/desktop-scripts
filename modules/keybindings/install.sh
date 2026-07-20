@@ -103,7 +103,17 @@ say "enabling keyd.service"
 # /usr/local/lib/systemd/system, which systemd on Fedora Atomic does not load:
 # the service reports enabled and never starts (keyd issue #1139).
 run sudo systemctl enable --now keyd
+
+# keyd 2.6.0 has segfaulted in process_event applying a changed config through
+# `keyd reload`, which leaves every keyboard unmapped while systemd still
+# reports the unit enabled. Reload is still the right call -- it keeps the
+# device grabs, where a restart drops and re-takes them -- but whether it
+# survived has to be checked rather than assumed.
 run sudo keyd reload
+if ! dry && ! systemctl is-active --quiet keyd; then
+  warn "keyd died applying the config; restarting it"
+  run sudo systemctl restart keyd
+fi
 
 say "installing user app.conf"
 run install -Dm644 "$MODULE/app.conf" "$HOME/.config/keyd/app.conf"
