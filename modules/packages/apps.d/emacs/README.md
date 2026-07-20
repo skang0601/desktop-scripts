@@ -1,7 +1,8 @@
 # emacs
 
 Emacs, Doom, Doom's dependencies, and the tracked config in `doom/`, which is
-symlinked into place so edits land in the repo.
+symlinked into place so edits land in the repo. [doom/README.md](doom/README.md)
+covers that config's own layout and the Doom idioms it depends on.
 
 ## Not Flatpak
 
