@@ -12,8 +12,7 @@ Apps and tooling, installed only when missing.
 
 | App | Method | Notes |
 | --- | --- | --- |
-| 1password | 1Password's RPM repo | Flatpak cannot serve the SSH agent |
-| 1password-cli | 1Password's RPM repo | not on Flathub at all |
+| 1password | 1Password's RPM repo | desktop app and the `op` CLI; Flatpak cannot serve the SSH agent |
 | emacs | brew / dnf | native, not Flatpak; includes Doom and its config |
 | go | brew / dnf | Fedora calls it `golang` |
 | zig | brew / dnf | |

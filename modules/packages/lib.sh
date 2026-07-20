@@ -65,27 +65,3 @@ require_app() {
   ( source "$MODULE/apps.d/$name.sh"
     app_check || { say "installing dependency $APP_NAME"; app_install; } )
 }
-
-# 1Password's own RPM repo. Both the desktop app and the `op` CLI come from it;
-# neither is in Fedora's repos, and the Flathub build cannot serve the SSH agent.
-#
-# gpgkey is written unquoted, unlike 1Password's own snippet: rpm-ostree has
-# been reported to fail with "Signing key not found" on the quoted form
-# (fedora-silverblue/issue-tracker#658).
-add_1password_repo() {
-  [[ -f /etc/yum.repos.d/1password.repo ]] && return 0
-
-  run sudo rpm --import https://downloads.1password.com/linux/keys/1password.asc
-  if dry; then
-    printf '    [dry-run] write /etc/yum.repos.d/1password.repo\n'
-  else
-    printf '%s\n' \
-      '[1password]' \
-      'name="1Password Stable Channel"' \
-      'baseurl=https://downloads.1password.com/linux/rpm/stable/$basearch' \
-      'enabled=1' \
-      'gpgcheck=1' \
-      'gpgkey=https://downloads.1password.com/linux/keys/1password.asc' |
-      sudo install -Dm644 /dev/stdin /etc/yum.repos.d/1password.repo
-  fi
-}
