@@ -8,6 +8,21 @@ module_checks() {
   check_service_active "keyd.service" keyd "sudo systemctl enable --now keyd"
   check_no_recent_crash "keyd stability" keyd
 
+  check_installed_matches "keyd restart drop-in" \
+    "$MODULE/keyd-restart.conf" /etc/systemd/system/keyd.service.d/restart.conf \
+    "./modules/keybindings/install.sh"
+
+  # The file being in place is not the same as systemd having read it, and the
+  # difference decides whether a segfault leaves the keyboard unmapped.
+  local policy
+  policy="$(systemctl show keyd -p Restart --value 2>/dev/null)"
+  if [[ "$policy" == always ]]; then
+    check_ok "keyd restart policy" "Restart=always"
+  else
+    check_fail "keyd restart policy" "Restart=$policy; a crash stays down" \
+      "sudo systemctl daemon-reload"
+  fi
+
   check_installed_matches "default.conf" \
     "$MODULE/default.conf" /etc/keyd/default.conf \
     "./modules/keybindings/install.sh"
@@ -54,13 +69,20 @@ module_checks() {
       "the GNOME extension spawns it; check it is enabled"
   fi
 
+  # app.log is append-only and its lines carry no timestamps, so counting every
+  # ERROR ever written turns one outage into a permanent failure -- keyd being
+  # down for a minute leaves dozens of "failed to connect" lines that no later
+  # success erases. Only the tail is read, and it is a warning rather than a
+  # failure: these lines are a record that something went wrong, not evidence
+  # that anything is wrong now. The live checks above answer that.
   local log="$HOME/.config/keyd/app.log" errors
   if [[ -f "$log" ]]; then
-    errors="$(grep -c ERROR "$log" 2>/dev/null || true)"
+    errors="$(tail -n 40 "$log" 2>/dev/null | grep -c ERROR || true)"
     if (( errors > 0 )); then
-      check_fail "mapper log" "$errors error line(s) in app.log" "tail $log"
+      check_warn "mapper log" "$errors error line(s) in the last 40" \
+        "tail $log; : > $log to reset once keyd is healthy"
     else
-      check_ok "mapper log" "no errors"
+      check_ok "mapper log" "no recent errors"
     fi
   fi
 

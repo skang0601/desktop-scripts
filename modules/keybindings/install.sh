@@ -98,6 +98,12 @@ run sudo install -Dm644 "$MODULE/default.conf" /etc/keyd/default.conf
 say "installing libinput touchpad quirk"
 run sudo install -Dm644 "$MODULE/local-overrides.quirks" /etc/libinput/local-overrides.quirks
 
+say "installing the keyd.service restart drop-in"
+# Before enabling, so the first start already has the policy.
+run sudo install -Dm644 "$MODULE/keyd-restart.conf" \
+  /etc/systemd/system/keyd.service.d/restart.conf
+run sudo systemctl daemon-reload
+
 say "enabling keyd.service"
 # Requires the packaged keyd. A source build installs its unit to
 # /usr/local/lib/systemd/system, which systemd on Fedora Atomic does not load:
