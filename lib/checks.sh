@@ -7,11 +7,23 @@
 # Each module's checks run in their own subshell, so a variable cannot carry
 # results back. Rows accumulate in $CHECK_RESULTS as TSV instead, the same way
 # the packages module collects per-app outcomes.
-_clean() { printf '%s' "$1" | tr '\t\n' '  '; }
+# Unit Separator, not tab. Tab is IFS whitespace, so `read` collapses a run of
+# them into one delimiter and every field after an empty one shifts left --
+# which silently corrupts every row whose group is empty. US is not whitespace,
+# so empty fields survive the round trip.
+FS=$'\x1f'
+# \037 is octal: tr has no \x escape, and '\x1f' there is the literal set
+# {\, x, 1, f} -- which silently turned 1password into " password".
+_clean() { printf '%s' "$1" | tr '\t\n\037' '   '; }
 
+# $CHECK_GROUP is a "/"-separated path naming what a row belongs to, so a
+# module can nest its rows without every renderer growing a column per level:
+# "local llm/ollama" puts the row under ollama, under local llm, under the
+# module. Empty means the row belongs to the module itself.
 _record() {
-  printf '%s\t%s\t%s\t%s\t%s\n' \
-    "$1" "$CHECK_MODULE" "$(_clean "$2")" "$(_clean "${3:-}")" "$(_clean "${4:-}")" \
+  printf '%s%s%s%s%s%s%s%s%s%s%s\n' \
+    "$1" "$FS" "$CHECK_MODULE" "$FS" "$(_clean "${CHECK_GROUP:-}")" "$FS" \
+    "$(_clean "$2")" "$FS" "$(_clean "${3:-}")" "$FS" "$(_clean "${4:-}")" \
     >>"$CHECK_RESULTS"
 }
 
