@@ -1,5 +1,7 @@
 # State checks for the ssh module. Sourced by ../../doctor.sh.
 # shellcheck shell=bash
+# shellcheck disable=SC2088  # tildes here are display labels and
+# copy-pasteable hints, not paths this script resolves itself
 
 module_checks() {
   # ssh refuses a config directory or key that others can write to, and says so

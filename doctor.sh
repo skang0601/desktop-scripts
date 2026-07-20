@@ -125,16 +125,25 @@ for m in system "${MODULES[@]}"; do
   script="$REPO/modules/$m/checks.sh"
   [[ -f "$script" ]] || continue
   RAN+=("$m")
-  # Subshell per module so one module's helpers cannot leak into the next, and
-  # a check that dies takes only its own module's remaining rows with it.
+  # errexit off around the module, then back on inside it: a subshell on the
+  # left of `||` runs with errexit suppressed, which would let a check fail
+  # silently and report whatever the last one happened to return.
+  set +e
   (
+    set -e
     CHECK_MODULE="$m"
     export CHECK_MODULE
     MODULE="$REPO/modules/$m"
     # shellcheck source=/dev/null
     source "$script"
     module_checks
-  ) || check_warn "checks aborted" "modules/$m/checks.sh exited early"
+  )
+  rc=$?
+  set -e
+  # CHECK_MODULE is set for this call alone: it runs in the parent, where the
+  # subshell's copy is out of scope and nounset would kill the whole run.
+  (( rc == 0 )) \
+    || CHECK_MODULE="$m" check_warn "checks aborted" "modules/$m/checks.sh exited early ($rc)"
 done
 
 # --- render ------------------------------------------------------------------
