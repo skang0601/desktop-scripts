@@ -10,18 +10,23 @@ Apps and tooling, installed only when missing.
 
 ## What's here
 
+An app with more to say than fits this table has a README beside its script.
+
 | App | Method | Notes |
 | --- | --- | --- |
-| 1password | brew cask from `ublue-os/tap` (rpm on traditional) | desktop app + `op`; the SSH agent socket is the point (ADR 0005) |
-| emacs | brew / dnf | native, not Flatpak; includes Doom and its config |
+| [1password](apps.d/1password) | brew cask from `ublue-os/tap` (rpm on traditional) | desktop app + `op`; the SSH agent socket is the point |
+| [emacs](apps.d/emacs) | brew / dnf | native, not Flatpak; includes Doom and its config |
 | go | brew / dnf | Fedora calls it `golang` |
 | rust | brew / dnf | `rustup`, not a fixed toolchain; keg-only, so [shell](../shell) puts its shims on PATH |
 | zig | brew / dnf | |
+| git-lfs | brew / dnf | |
 | claude-code | vendor installer | lands in `~/.local/bin`, no root |
 | claude-desktop | official apt repo, in a distrobox | Anthropic ship Debian/Ubuntu only |
-| dev-box | Fedora toolbox | `-devel` headers for building against system libraries, without layering (ADR 0005) |
+| [dev-box](apps.d/dev-box) | Fedora toolbox | `-devel` headers for building against system libraries, without layering |
 | steam | Flatpak | preinstalled on Bazzite, so usually a no-op |
 | jetbrains-toolbox | tarball | bootstraps to `~/.local/bin`, then self-updates |
+| [ollama](apps.d/ollama) | tarball | brew's bottle has no CUDA; auto-pins to the GPU not driving the display |
+| [open-webui](apps.d/open-webui) | podman quadlet | browser front end for ollama at ai.localhost:1234; published only as an image |
 
 ## Install strategy
 
@@ -38,56 +43,18 @@ where layering costs a reboot and can block a rebase (ADR 0005):
 5. **Vendor installers** where nothing else is published, kept to `$HOME`.
 6. **`rpm-ostree` layering** only as a last resort, with a loud reboot warning.
 
-Two apps deliberately skip Flatpak:
+The ranking is a default, not a rule: an app takes a lower method when a higher
+one cannot deliver what the app exists for. [1password](apps.d/1password) and
+[emacs](apps.d/emacs) both skip Flatpak, and [ollama](apps.d/ollama) skips brew,
+each for a reason recorded in its own README.
 
-**emacs** -- as a development editor it needs to reach compilers, LSP servers
-and toolchains outside the sandbox, and punching those through one by one is
-worse than the alternative.
-
-**1password** -- the Flathub build is vendor-verified, but 1Password's docs
-state the SSH agent does not work under Flatpak, and the manifest confirms it:
-no `--filesystem=home`, and `$HOME` redirected into the sandbox, so
-`~/.1password/agent.sock` cannot appear on the host. The [ssh](../ssh) module
-depends on that socket for every git-over-ssh operation, so the Flatpak would
-break authentication outright.
-
-It comes from `ublue-os/tap` instead, which packages 1Password's own Linux
-tarball. The rpm cannot be layered at all -- its `%post` aborts under
-rpm-ostree -- so brew is the remaining route that puts the app on the host,
-where the agent socket, `op`, the polkit policy and browser integration all
-work without special handling (ADR 0005).
-
-Trusting that tap is a real decision: its casks `sudo` to install a polkit
-policy into `/etc/polkit-1/actions`, create the `onepassword` group, and set
-setuid/setgid bits. The app names the tap rather than trusting taps in general.
-
-Running the app in the `ubuntu` box was tried and works for the agent, but `op`
-does not survive the container boundary in either direction, and the polkit,
-autostart and browser paths each need patching up by hand.
-
-## Building against system libraries
-
-Crates that bind system libraries -- `hidapi` wants `libudev.pc` -- need `-devel`
-packages no Fedora Atomic image ships. Those are build-time only, so layering
-them would carry headers on the host across every image update to produce
-binaries that never load them.
-
-`dev-box` is a Fedora toolbox for that instead:
-
-```sh
-distrobox enter dev -- cargo build --release
-```
-
-The box is stopped once provisioned and stays that way; `distrobox enter` starts
-it on demand. `doctor.sh` has to look inside to report what is there, so it
-starts the box and stops it again rather than leaving one running.
-
-The image is pinned to the host's Fedora release, so the headers compiled
-against and the sonames the binary loads on the host are the same version.
-Homebrew is mounted at its own prefix, which its bottles hardcode, so
-`~/.bashrc` puts the host's rustup on PATH inside the box and there is no second
-toolchain to keep in step. `doctor.sh` reports a box whose image has fallen
-behind the host.
+Containers cover two different shapes. `distrobox` is for interactive boxes that
+share `$HOME` -- see [dev-box](apps.d/dev-box). A long-running service instead
+takes a podman **quadlet**: a `.container` file symlinked into
+`~/.config/containers/systemd/`, which podman's systemd generator turns into a
+`--user` service. [open-webui](apps.d/open-webui) is the example. Quadlet units
+are generated, so they cannot be `systemctl --user enable`d; the `[Install]`
+section inside the `.container` file is what the generator acts on.
 
 ## Adding an app
 
@@ -110,12 +77,19 @@ and holding a script of the same name:
 apps.d/ripgrep.sh          # script only
 apps.d/emacs/emacs.sh      # script plus the files it installs
 apps.d/emacs/doom/
+apps.d/emacs/README.md
 ```
 
 Both forms are one app with one `APP_NAME`, and `./install.sh emacs` names
 either. Inside the script, **`$APP_DIR` is the directory its own file lives in**
 -- use it to reach bundled files, so config sits beside the code that installs
 it rather than elsewhere in the module.
+
+An app whose reasoning outgrows a table cell takes the directory form and a
+`README.md` in it, so what is true of one app stays with that app. This file
+covers the module: the contract, the helpers, and the ranking every app is
+choosing against. Anything answering "why is this app like this" belongs in the
+app's own README, and anything outliving the code belongs in `docs/decisions/`.
 
 Apps run in name order. One that needs another first calls `require_app <name>`
 rather than relying on that order.
@@ -136,10 +110,16 @@ app_checks() {
 }
 ```
 
+`module_checks` already reports an app as installed or missing, so `app_checks`
+adds only what it alone can know. Each app runs with stdin closed, because a
+check that shells out to podman or distrobox would otherwise read the rest of
+the app list and end the loop partway down.
+
 An app that cannot be installed on some machines defines `app_blocked()`, which
-prints the reason and succeeds when blocked. `app_install` calls `blocked "$reason"`
-on it and `doctor.sh` reports it as **blocked** rather than a warning, so a
-standing upstream bug stops reading as a fresh problem on every run:
+prints the reason and **succeeds when blocked**. `app_install` calls
+`blocked "$reason"` on it and `doctor.sh` reports it as **blocked** rather than a
+warning, so a standing upstream bug stops reading as a fresh problem on every
+run:
 
 ```sh
 app_blocked() {
@@ -149,8 +129,8 @@ app_blocked() {
 }
 ```
 
-No app declares one at present. 1Password did, until its `%post` failure stopped
-being a dead end and became a reason to install it from a brew cask instead.
+Getting that return sense backwards makes the app look permanently blocked, and
+`doctor.sh` will skip its `app_checks` entirely.
 
 Helpers available: `install_cli`, `install_rpm`, `install_flatpak`,
 `flatpak_installed`, `require_app`, `brew_split_shared_dir`, `brew_relink`,
@@ -165,27 +145,3 @@ one file holds all of them.
 Anything doing more than a simple command -- pipes, redirects, heredocs -- must
 handle `--dry-run` itself with an explicit `if dry; then ... fi`, or the dry-run
 output will lie about what it does.
-
-## Doom Emacs
-
-`emacs` installs Emacs, Doom, Doom's dependencies, and the tracked config in
-`apps.d/emacs/doom/`, which is symlinked into place so edits land in the repo.
-
-Dependencies come from the modules enabled in `apps.d/emacs/doom/init.el`: `git`, `ripgrep`
-and `fd` for `:completion` and `:tools lookup`, and `shellcheck` for
-`:checkers syntax` against `:lang sh`. Adding a module may add a dependency --
-`doom doctor` will say so.
-
-Path layout is a mess of Doom's own history and is detected rather than forced:
-
-| | current | legacy |
-| --- | --- | --- |
-| Doom | `~/.config/emacs` | `~/.emacs.d` |
-| config | `~/.config/doom` | `~/.doom.d` |
-
-The legacy paths win when both exist. A fresh install gets the current layout; a
-machine already using the legacy one keeps it, since relocating a working Doom
-is not this script's business. Any real config directory found in the way is
-renamed to `.bak` before the symlink goes in.
-
-`init.elc` is a build artifact of `doom sync` and is not tracked.
