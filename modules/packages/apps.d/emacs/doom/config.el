@@ -157,3 +157,113 @@
       :desc "Tools"                     "t" #'gptel-tools
       :desc "System prompt"             "p" #'gptel-system-prompt
       :desc "Preset"                    "P" #'gptel-preset)
+
+
+;;; Local LLM tools
+;;
+;; The same two capabilities open-webui has, on the Emacs side. Search goes to
+;; the searxng the packages module runs on loopback, so it needs no API key and
+;; the queries stay on this machine.
+
+(defvar +searxng-url "http://127.0.0.1:8888/search")
+
+;; Bounded because a tool result is spent from the model's context window, and
+;; a whole file or a long search page would crowd out the conversation.
+(defvar +gptel-tool-max-chars 20000)
+
+(defun +gptel--truncate (s)
+  (if (> (length s) +gptel-tool-max-chars)
+      (concat (substring s 0 +gptel-tool-max-chars) "\n[truncated]")
+    s))
+
+(defun +gptel-web-search (query)
+  "Return titles, URLs and snippets searxng has for QUERY."
+  (condition-case err
+      (with-current-buffer
+          (url-retrieve-synchronously
+           (format "%s?q=%s&format=json" +searxng-url (url-hexify-string query))
+           t t 15)
+        (unwind-protect
+            (progn
+              (goto-char (point-min))
+              (if (not (re-search-forward "^$" nil t))
+                  "searxng returned no parseable response"
+                (let ((results (alist-get 'results (json-parse-buffer :object-type 'alist))))
+                  (if (zerop (length results))
+                      (format "No results for %s" query)
+                    (+gptel--truncate
+                     (mapconcat
+                      (lambda (r)
+                        (format "%s\n%s\n%s"
+                                (alist-get 'title r "")
+                                (alist-get 'url r "")
+                                (alist-get 'content r "")))
+                      (seq-take (append results nil) 8)
+                      "\n\n"))))))
+          (kill-buffer)))
+    (error (format "searxng is not answering on %s: %s"
+                   +searxng-url (error-message-string err)))))
+
+(defun +gptel-read-file (path)
+  "Return the contents of PATH."
+  (let ((f (expand-file-name path)))
+    (cond ((not (file-readable-p f)) (format "Cannot read %s" f))
+          ((file-directory-p f) (format "%s is a directory" f))
+          (t (with-temp-buffer
+               (insert-file-contents f)
+               (+gptel--truncate (buffer-string)))))))
+
+(defun +gptel-list-directory (path)
+  "Return the names in directory PATH."
+  (let ((d (expand-file-name path)))
+    (if (not (file-directory-p d))
+        (format "%s is not a directory" d)
+      (+gptel--truncate
+       (mapconcat (lambda (f) (if (file-directory-p (expand-file-name f d))
+                                  (concat f "/") f))
+                  (directory-files d nil directory-files-no-dot-files-regexp)
+                  "\n")))))
+
+;; This one runs on the host as the user, with the user's files and the user's
+;; credentials. :confirm below is the whole of the safety story -- there is no
+;; sandbox here, and the prompt showing the exact command is what stands
+;; between the model and the machine. Do not remove it to save keystrokes.
+(defun +gptel-run-command (command)
+  "Run COMMAND with the shell and return its combined output."
+  (+gptel--truncate
+   (with-temp-buffer
+     (let ((status (call-process shell-file-name nil t nil
+                                 shell-command-switch command)))
+       (format "exit %s\n%s" status (buffer-string))))))
+
+(after! gptel
+  (gptel-make-tool
+   :name "web_search"
+   :function #'+gptel-web-search
+   :description "Search the web and return the top results with URLs and \
+snippets. Use for anything current, or any fact that needs a source."
+   :args '((:name "query" :type string :description "The search query."))
+   :category "web")
+
+  (gptel-make-tool
+   :name "read_file"
+   :function #'+gptel-read-file
+   :description "Read a file from disk and return its contents."
+   :args '((:name "path" :type string :description "Path to the file."))
+   :category "filesystem")
+
+  (gptel-make-tool
+   :name "list_directory"
+   :function #'+gptel-list-directory
+   :description "List the files and directories in a directory."
+   :args '((:name "path" :type string :description "Path to the directory."))
+   :category "filesystem")
+
+  (gptel-make-tool
+   :name "run_command"
+   :function #'+gptel-run-command
+   :description "Run a shell command on this machine and return its output \
+and exit status. The user is asked to approve each command before it runs."
+   :args '((:name "command" :type string :description "The shell command."))
+   :category "system"
+   :confirm t))
