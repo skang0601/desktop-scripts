@@ -15,10 +15,41 @@ AGENT_SOCK="$HOME/.1password/agent.sock"
 GUI_CASK="$UBLUE_TAP/1password-gui-linux"
 CLI_CASK="$UBLUE_TAP/1password-cli-linux"
 
+# 1Password writes this file itself when "Start at login" is on, and hardcodes
+# Exec=/opt/1Password/1password -- where its own .deb and .rpm install. The cask
+# puts the binary under brew's prefix, so the entry the app writes points at
+# nothing. GNOME's exec fails silently at login, and the first symptom is ssh
+# falling back to a key file because agent.sock has no daemon behind it.
+AUTOSTART="$HOME/.config/autostart/1password.desktop"
+
+# The app's own setting decides whether it should start at login; the .desktop
+# file is only how that gets implemented. An unreadable settings file counts as
+# yes, since the agent socket exists only while the app runs.
+wants_autostart() {
+  local settings="$HOME/.config/1Password/settings/settings.json"
+  [[ -f "$settings" ]] || return 0
+  python3 -c 'import json,sys
+sys.exit(0 if json.load(open(sys.argv[1])).get("app.startAtLogin", True) else 1)' \
+    "$settings" 2>/dev/null
+}
+
+# The Exec target, which is the part that goes wrong. Empty when the entry is
+# absent or its first token no longer resolves to something executable.
+autostart_exec() {
+  local exec_line target
+  [[ -f "$AUTOSTART" ]] || return 1
+  exec_line="$(sed -n 's/^Exec=//p' "$AUTOSTART" | head -1)"
+  target="${exec_line%% *}"
+  [[ -x "$target" ]] || return 1
+  printf '%s\n' "$target"
+}
+
+autostart_ok() { ! wants_autostart || autostart_exec >/dev/null; }
+
 # op and the desktop app have to come from the same install. The app integration
 # refuses a CLI it cannot match to the running app -- a brew op against a
 # container app, or the reverse, fails with "connecting to desktop app".
-app_check() { have 1password && have op; }
+app_check() { have 1password && have op && autostart_ok; }
 
 app_install() {
   if ! have brew; then
@@ -43,6 +74,40 @@ app_install() {
 
   say "sign in, then enable Settings -> Developer -> 'Use the SSH agent'"
   say "and 'Integrate with 1Password CLI' for op"
+
+  install_autostart
+}
+
+# Rewritten by the app whenever "Start at login" is toggled, so this repairs
+# rather than owns it: re-running the installer is the fix after that happens.
+install_autostart() {
+  wants_autostart || return 0
+  autostart_exec >/dev/null && return 0
+
+  local bin
+  bin="$(command -v 1password)" || { warn "no 1password binary to point autostart at"; return 1; }
+
+  say "pointing the autostart entry at $bin"
+  if dry; then
+    printf '    [dry-run] write %s with Exec=%s --silent\n' "$AUTOSTART" "$bin"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$AUTOSTART")"
+  # --silent starts it to the tray, which is what a login start is for.
+  cat >"$AUTOSTART" <<EOF
+[Desktop Entry]
+Name=1Password
+Exec=$bin --silent
+Terminal=false
+Type=Application
+Icon=1password
+StartupWMClass=1Password
+Comment=Password manager and secure wallet
+MimeType=x-scheme-handler/onepassword;x-scheme-handler/onepassword8;
+Categories=Office;
+X-GNOME-Autostart-enabled=true
+EOF
 }
 
 # 1Password's own RPM repo, for systems without brew. Neither the desktop app
@@ -74,6 +139,23 @@ app_checks() {
     check_ok "1password app" "$(command -v 1password)"
   else
     check_warn "1password app" "not installed" "./modules/packages/install.sh 1password"
+  fi
+
+  # Checked separately from the socket because it is the cause the socket's
+  # absence does not name: the app not running at all, every login, silently.
+  local target
+  if ! wants_autostart; then
+    check_ok "1password autostart" "off in the app's settings"
+  elif target="$(autostart_exec)"; then
+    check_ok "1password autostart" "$target"
+  elif [[ -f "$AUTOSTART" ]]; then
+    check_warn "1password autostart" \
+      "$AUTOSTART points at a binary that is not there" \
+      "./modules/packages/install.sh 1password"
+  else
+    check_warn "1password autostart" \
+      "'Start at login' is on, but no autostart entry implements it" \
+      "./modules/packages/install.sh 1password"
   fi
 
   # The socket is the point of the whole entry, and it is absent whenever the

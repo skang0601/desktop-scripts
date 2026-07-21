@@ -38,3 +38,22 @@ autostart and browser paths each need patching up by hand.
 
 This app declared `app_blocked` until the `%post` failure stopped being a dead
 end and became a reason to install from the cask instead.
+
+## Start at login
+
+The app writes `~/.config/autostart/1password.desktop` itself when **Start at
+login** is enabled, and hardcodes `Exec=/opt/1Password/1password` -- the path
+its own `.deb` and `.rpm` use. The cask installs under brew's prefix, so the
+entry the app writes points at nothing.
+
+Nothing announces that. GNOME's exec fails silently at login; the app is simply
+not running, `agent.sock` is left with no daemon behind it, and the first
+symptom is ssh falling back to a key file and a `Permission denied (publickey)`
+from an unrelated `git push`.
+
+`install.sh` repairs the entry, pointing it at whichever binary is on PATH, and
+`doctor.sh` reports it. It repairs rather than owns: the app rewrites the file
+whenever the setting is toggled, and re-running the installer is the fix.
+
+The app's own setting decides whether the entry should exist at all -- turning
+**Start at login** off leaves it alone rather than putting it back.
