@@ -1,14 +1,9 @@
 # shellcheck shell=bash
 # Interactive aliases. Sourced from ~/.bashrc via ~/.bashrc.d/.
 #
-# Nothing here is allowed to change what a *command* does -- no `alias
-# grep=...` that a copied line then behaves differently under. These are new
-# names for longer commands, so anything written against the real name still
-# means what it says.
-#
-# Git shorthands are deliberately absent: they live in the git module's
-# gitconfig as `git s`, `git lg`, `git last`, `git unstage`, which work over ssh
-# and inside editors that never read this file.
+# Nothing here shadows an existing command, so a line copied from a script
+# behaves the same when pasted here. Git shorthands live in the git module's
+# gitconfig (`git s`, `git lg`, ...), where they also work over ssh.
 
 alias ls='ls --color=auto'
 alias ll='ls -lh --color=auto'
@@ -28,9 +23,8 @@ alias kx='kubectl exec -it'
 alias kaf='kubectl apply -f'
 alias kdel='kubectl delete'
 
-# Functions, not aliases: both answer "which one am I on?" when called bare and
-# switch when given an argument, and both are what `kubectx`/`kubens` are
-# usually installed for -- kubectl has done it natively since 1.10.
+# kubectx/kubens as shell functions -- kubectl config has done both natively
+# since 1.10. Bare prints the current value; an argument switches it.
 kctx() {
   if (($# == 0)); then
     kubectl config get-contexts

@@ -17,10 +17,8 @@ app_install() {
 app_checks() {
   have zls || return 0
 
-  # A zig shadowed from ~/.local -- the escape hatch above -- is exactly the
-  # case where the pair drifts, and zls reports it only when an editor asks.
   # zls versions itself with the zig release it targets, so equality is the
-  # whole test.
+  # whole test -- and it catches the drift the ~/.local escape hatch invites.
   local zig_ver zls_ver
   zig_ver="$(zig version 2>/dev/null)"
   zls_ver="$(zls --version 2>/dev/null)"

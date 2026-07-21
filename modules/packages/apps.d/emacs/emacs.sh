@@ -50,8 +50,7 @@ DOOM_DEPS=(
   "dot        graphviz    graphviz"
 )
 
-# Gating the app on these means adding a line above is enough to get it
-# installed on the next run; app_install is idempotent, so the rest is a no-op.
+# app_check gates on this, so adding a row above installs it on the next run.
 doom_deps_present() {
   local dep
   for dep in "${DOOM_DEPS[@]}"; do

@@ -33,8 +33,8 @@ sys.exit(0 if json.load(open(sys.argv[1])).get("app.startAtLogin", True) else 1)
     "$settings" 2>/dev/null
 }
 
-# The Exec target, which is the part that goes wrong. Empty when the entry is
-# absent or its first token no longer resolves to something executable.
+# The entry's Exec target, or nonzero if the file is absent or its target no
+# longer resolves to something executable -- which is the failure this repairs.
 autostart_exec() {
   local exec_line target
   [[ -f "$AUTOSTART" ]] || return 1
