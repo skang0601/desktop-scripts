@@ -5,5 +5,5 @@
 # module to read, installers set DRY_RUN for lib/common.sh's `dry`, and doctor.sh
 # sets MODULE for the checks.sh it sources. ShellCheck cannot see across that
 # boundary, so the check is a false positive by construction here rather than
-# occasionally -- 30 hits, all structural.
+# occasionally.
 disable=SC2034

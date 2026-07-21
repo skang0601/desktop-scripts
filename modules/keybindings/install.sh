@@ -80,8 +80,7 @@ if dry; then
 else
   # keyd exits nonzero only on a parse error. An unknown key or action is a
   # warning on stdout with exit 0, so a whole layer of bindings can be dropped
-  # while the check "passes" -- which is exactly how the trailing-comment form
-  # went unnoticed. Any WARNING is fatal here.
+  # while the check "passes". Any WARNING is fatal here.
   check_out="$(keyd check "$MODULE/default.conf" 2>&1)" || true
   printf '%s\n' "$check_out"
   if grep -q WARNING <<<"$check_out"; then
@@ -113,8 +112,7 @@ run sudo systemctl enable --now keyd
 # keyd 2.6.0 has segfaulted in process_event applying a changed config through
 # `keyd reload`, which leaves every keyboard unmapped while systemd still
 # reports the unit enabled. Reload is still the right call -- it keeps the
-# device grabs, where a restart drops and re-takes them -- but whether it
-# survived has to be checked rather than assumed.
+# device grabs, where a restart drops and re-takes them.
 run sudo keyd reload
 if ! dry && ! systemctl is-active --quiet keyd; then
   warn "keyd died applying the config; restarting it"

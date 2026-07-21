@@ -56,8 +56,7 @@ CHECK_RESULTS="$(mktemp)"
 export CHECK_RESULTS
 trap 'rm -f "$CHECK_RESULTS"' EXIT
 
-# --- system: not a module, but the ground every module stands on -------------
-
+# Not a module: these are the facts every module's checks assume about the host.
 system_checks() {
   if ! is_atomic; then
     check_ok "system type" "traditional (dnf)"
@@ -113,8 +112,6 @@ PY
   rm -f "$json"
 }
 
-# --- run ---------------------------------------------------------------------
-
 RAN=()
 for m in system "${MODULES[@]}"; do
   if [[ "$m" == system ]]; then
@@ -146,8 +143,6 @@ for m in system "${MODULES[@]}"; do
   (( rc == 0 )) \
     || CHECK_MODULE="$m" check_warn "checks aborted" "modules/$m/checks.sh exited early ($rc)"
 done
-
-# --- render ------------------------------------------------------------------
 
 count() { awk -F'\x1f' -v s="$1" '$1==s' "$CHECK_RESULTS" | wc -l; }
 N_OK="$(count ok)"; N_WARN="$(count warn)"; N_FAIL="$(count fail)"

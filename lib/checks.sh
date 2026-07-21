@@ -12,8 +12,8 @@
 # which silently corrupts every row whose group is empty. US is not whitespace,
 # so empty fields survive the round trip.
 FS=$'\x1f'
-# \037 is octal: tr has no \x escape, and '\x1f' there is the literal set
-# {\, x, 1, f} -- which silently turned 1password into " password".
+# \037 is octal: tr has no \x escape, so '\x1f' there is the literal set
+# {\, x, 1, f}, and every backslash, x, 1 and f in a field becomes a space.
 _clean() { printf '%s' "$1" | tr '\t\n\037' '   '; }
 
 # $CHECK_GROUP is a "/"-separated path naming what a row belongs to, so a

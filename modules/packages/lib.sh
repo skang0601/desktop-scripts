@@ -190,8 +190,9 @@ run_app_checks() {
     export CHECK_GROUP
     # shellcheck source=/dev/null
     source "$f"
-    # Not `&& app_checks`: that returns nonzero for every app without one, and
-    # the caller runs under errexit.
+    # The guard exits 0 for an app without app_checks. Folding it into
+    # `&& app_checks` would return nonzero there, and the caller runs under
+    # errexit.
     declare -F app_checks >/dev/null || exit 0
     app_checks )
 }

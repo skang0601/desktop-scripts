@@ -88,8 +88,8 @@ app_install() {
   dry || wait_for_json || warn "searxng did not answer JSON on $API"
 }
 
-# The whole point of the settings override, so it is worth proving rather than
-# assuming: stock SearXNG answers 403 to format=json.
+# Stock SearXNG answers 403 to format=json, so a successful JSON response is
+# what proves the settings override reached the container.
 wait_for_json() {
   local i
   for i in $(seq 1 30); do

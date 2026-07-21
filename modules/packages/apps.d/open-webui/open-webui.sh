@@ -95,7 +95,9 @@ app_install() {
   [[ -n "$chosen" ]] || warn "no model in $ROLES; open-webui will have no default"
   write_envfile "$chosen"
 
-  # The [Service] drop-in an earlier version wrote never reached the container.
+  # A [Service] drop-in sets the variable on the podman process, where the app
+  # never sees it; EnvironmentFile= is what reaches inside. Any drop-in left
+  # from before that goes.
   run rm -rf "$HOME/.config/systemd/user/open-webui.service.d"
 
   # Pulled here rather than left to the unit's first start, so the ~1.8GB

@@ -41,8 +41,7 @@ module_checks() {
     check_ok "config validity" "keyd check is clean"
   fi
 
-  # --- Layer 3: per-application remapping ------------------------------------
-
+  # Per-application remapping (Layer 3 in docs/decisions/0002-macos-keybindings.md).
   check_installed_matches "app.conf" \
     "$MODULE/app.conf" "$HOME/.config/keyd/app.conf" \
     "./modules/keybindings/install.sh"
@@ -111,8 +110,7 @@ module_checks() {
     fi
   fi
 
-  # --- Layer 2: the GNOME shortcuts the keyd layers collide with -------------
-
+  # The GNOME shortcuts keyd's layers collide with (Layer 2).
   check_dconf "app grid key" org.gnome.shell.keybindings \
     toggle-application-view "['<Shift><Super>space']"
   check_dconf "overview key" org.gnome.shell.keybindings \
