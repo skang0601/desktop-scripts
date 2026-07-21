@@ -17,10 +17,31 @@ specifically.
 
 ## Dependencies
 
-They come from the modules enabled in `doom/init.el`: `git`, `ripgrep` and `fd`
-for `:completion` and `:tools lookup`, and `shellcheck` for `:checkers syntax`
-against `:lang sh`. Adding a module may add a dependency -- `doom doctor` will
-say so.
+They come from the modules enabled in `doom/init.el`, and `doom doctor` is what
+says which. `DOOM_DEPS` in `emacs.sh` is that list, with the module each entry
+answers to; `app_check` tests it, so adding a row is enough to get it installed
+on the next run.
+
+Language servers are **not** in it. `gopls` lives with [go](../go.sh), `zls`
+with [zig](../zig.sh), and `rust-analyzer` comes with the rustup toolchain, so a
+machine gets them whether or not it runs emacs.
+
+`sqlite` is not in it either. `:lang org +roam` wants one, and Emacs 29 and
+later have it built in -- `org-roam` uses that rather than an external binary or
+the `emacsql-sqlite` build.
+
+Three warnings from `doom doctor` are left standing on purpose:
+
+- **npm**, which `lsp-mode` uses to auto-install servers. Every `+lsp` language
+  enabled here has a native server already, so this would install a runtime to
+  serve languages that are not on.
+- **gore**, the Go REPL behind `:lang go`. Not in brew, so it would be a
+  `go install` of an unmaintained tool landing outside anything that tracks it;
+  `gopls`, `gomodifytags` and `gotests` are all brewed, under [go](../go.sh).
+- **maim / scrot / gnome-screenshot**, for `org-download-clipboard`. The first
+  two are X11-only and this is a Wayland session; GNOME dropped
+  `gnome-screenshot` for the Shell's own UI. `org-download` has no Wayland
+  backend to point at, so there is nothing to install that would work.
 
 ## Local LLM
 

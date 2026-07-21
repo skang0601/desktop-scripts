@@ -26,11 +26,46 @@ emacs_gui() {
   emacs -Q --batch --eval '(kill-emacs (if (fboundp (quote x-create-frame)) 0 1))' 2>/dev/null
 }
 
+# External programs `doom doctor` asks for, given the modules enabled in
+# doom/init.el: the binary, then the Fedora and brew package names for it.
+#
+# Only the ones no other app already installs are here. Language servers live
+# with their languages -- gopls under go, zls under zig, rust-analyzer in the
+# rustup toolchain -- so a machine gets them whether or not it runs emacs.
+#
+# sqlite is deliberately absent: org +roam wants it, and Emacs 29 and later have
+# it built in, which is what org-roam uses.
+DOOM_DEPS=(
+  # doom itself, and :tools magit
+  "git        git         git"
+  # :completion vertico, :tools lookup
+  "rg         ripgrep     ripgrep"
+  "fd         fd-find     fd"
+  # :lang sh -- shellcheck for :checkers syntax, shfmt for :editor format
+  "shellcheck ShellCheck  shellcheck"
+  "shfmt      shfmt       shfmt"
+  # :lang markdown -- markdown-mode shells out to `markdown` for the preview
+  "markdown   discount    markdown"
+  # :lang org +roam -- graphviz's `dot` renders the roam graph
+  "dot        graphviz    graphviz"
+)
+
+# Gating the app on these means adding a line above is enough to get it
+# installed on the next run; app_install is idempotent, so the rest is a no-op.
+doom_deps_present() {
+  local dep
+  for dep in "${DOOM_DEPS[@]}"; do
+    # shellcheck disable=SC2086  # deliberate word splitting of the table row
+    set -- $dep
+    have "$1" || return 1
+  done
+}
+
 # The config link is compared by target, not by existence: -L alone is true of a
 # link left dangling by a moved or renamed source, which is exactly the state
 # that needs relinking.
 app_check() {
-  emacs_gui && doom_installed \
+  emacs_gui && doom_installed && doom_deps_present \
     && [[ "$(readlink -f "$(doomdir)" 2>/dev/null)" == "$(readlink -f "$APP_DIR/doom")" ]]
 }
 
@@ -49,13 +84,12 @@ app_install() {
     install_rpm emacs
   fi
 
-  # Doom's own requirements, plus what the enabled modules need:
-  # ripgrep and fd for :completion and :tools lookup, shellcheck for the
-  # :checkers syntax module against :lang sh.
-  have git || install_cli git
-  have rg  || install_cli ripgrep
-  have fd  || install_cli fd-find fd
-  have shellcheck || install_cli ShellCheck shellcheck
+  local dep
+  for dep in "${DOOM_DEPS[@]}"; do
+    # shellcheck disable=SC2086  # deliberate word splitting of the table row
+    set -- $dep
+    have "$1" || install_cli "$2" "$3"
+  done
 
   local fresh=0
   if ! doom_installed; then
@@ -90,9 +124,7 @@ app_install() {
   say "the shell module puts Doom's bin/ on PATH"
 }
 
-# Reported by ../../checks.sh through doctor.sh. Reuses the detection above, so
-# the check follows whichever layout this machine actually has rather than
-# assuming the modern one.
+# Follows whichever layout the machine actually has, not the modern one.
 app_checks() {
   if ! doom_installed; then
     check_warn "doom" "not installed" "./modules/packages/install.sh emacs"

@@ -15,16 +15,18 @@ An app with more to say than fits this table has a README beside its script.
 | App | Method | Notes |
 | --- | --- | --- |
 | [1password](apps.d/1password) | brew cask from `ublue-os/tap` (rpm on traditional) | desktop app + `op`; the SSH agent socket is the point |
-| [emacs](apps.d/emacs) | brew / dnf | native, not Flatpak; includes Doom and its config |
-| go | brew / dnf | Fedora calls it `golang` |
+| [emacs](apps.d/emacs) | brew / dnf | native, not Flatpak; includes Doom, its config, and what `doom doctor` asks for |
+| go | brew / dnf | Fedora calls it `golang`; carries `gopls`, `gomodifytags`, `gotests` |
 | rust | brew / dnf | `rustup`, not a fixed toolchain; keg-only, so [shell](../shell) puts its shims on PATH |
-| zig | brew / dnf | |
+| zig | brew / dnf | carries `zls`, which is versioned against the zig release |
+| kubectl | brew / dnf | `k` and its completion live in [shell](../shell) |
+| opentofu | brew | with `tofu-ls`; not in Fedora's repos, so the brew-less path is blocked |
 | git-lfs | brew / dnf | |
 | claude-code | vendor installer | lands in `~/.local/bin`, no root |
 | claude-desktop | official apt repo, in a distrobox | Anthropic ship Debian/Ubuntu only |
 | [dev-box](apps.d/dev-box) | Fedora toolbox | `-devel` headers for building against system libraries, without layering |
 | steam | Flatpak | preinstalled on Bazzite, so usually a no-op |
-| jetbrains-toolbox | tarball | bootstraps to `~/.local/bin`, then self-updates |
+| jetbrains-toolbox | brew cask from `ublue-os/tap` (tarball without brew) | bootstraps Toolbox, which then self-updates |
 | [ollama](apps.d/ollama) | tarball | brew's bottle has no CUDA; auto-pins to the GPU not driving the display |
 | [searxng](apps.d/searxng) | podman quadlet | local metasearch on loopback; web-search backend for open-webui and gptel |
 | [open-webui](apps.d/open-webui) | podman quadlet | browser front end for ollama at ai.localhost:1234; published only as an image |
@@ -146,9 +148,16 @@ app_blocked() {
 Getting that return sense backwards makes the app look permanently blocked, and
 `doctor.sh` will skip its `app_checks` entirely.
 
+A tool an app exists to support is part of that app, not an app of its own:
+`gopls` under go, `zls` under zig, and everything `doom doctor` asks for under
+[emacs](apps.d/emacs). Splitting them out gives a machine that can pass
+`app_check` for the language while the editor for it is unusable. Where two apps
+would both want one -- `ripgrep`, `shellcheck` -- it goes to the app that would
+break without it, and `app_check` on the other tests for the binary.
+
 Helpers available: `install_cli`, `install_rpm`, `install_flatpak`,
 `flatpak_installed`, `require_app`, `brew_split_shared_dir`, `brew_relink`,
-`blocked` from `lib.sh`; `have`, `run`, `dry`, `say`, `warn`, `is_atomic`,
+`brew_tap_trusted`, `blocked` from `lib.sh`; `have`, `run`, `dry`, `say`, `warn`, `is_atomic`,
 `link_config` from `../../lib/common.sh`.
 
 An app needing a PATH entry adds it to [shell](../shell)'s `10-path.sh` rather

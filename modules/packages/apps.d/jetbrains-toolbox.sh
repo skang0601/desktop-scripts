@@ -2,16 +2,30 @@
 APP_NAME=jetbrains-toolbox
 
 # Toolbox self-installs into ~/.local/share/JetBrains/Toolbox on first run and
-# manages itself from then on; the tarball only bootstraps it. Detect the
-# self-installed state rather than the bootstrap binary, which it may remove.
+# manages itself from then on; neither the cask nor the tarball does more than
+# bootstrap it. Detect the self-installed state as well as the bootstrap binary,
+# which it may remove.
 TOOLBOX_DATA="$HOME/.local/share/JetBrains/Toolbox"
+
+CASK="$UBLUE_TAP/jetbrains-toolbox-linux"
 
 app_check() {
   [[ -d "$TOOLBOX_DATA/apps" || -f "$TOOLBOX_DATA/state.json" ]] || have jetbrains-toolbox
 }
 
 app_install() {
-  # No package or Flatpak is published; the tarball is the supported route.
+  if have brew; then
+    # The cask unpacks JetBrains' own tarball -- the same bytes the fallback
+    # below fetches -- and additionally installs the .desktop entry, which the
+    # tarball leaves to Toolbox's first run.
+    say "trusting $UBLUE_TAP; its casks repackage vendors' own Linux builds"
+    brew_tap_trusted "$UBLUE_TAP"
+    run brew install --cask "$CASK"
+    return 0
+  fi
+
+  # No package, Flatpak or vendor repo is published, so without brew the tarball
+  # is the only supported route.
   local api='https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release'
   local url
   url=$(curl -fsSL "$api" | python3 -c \

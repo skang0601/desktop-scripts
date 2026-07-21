@@ -75,6 +75,19 @@ brew_relink() {
   run brew link "$1"
 }
 
+# ublue-os repackage several vendors' own Linux builds as casks -- the vendor's
+# binary by a different route, which on an atomic system beats both a container
+# and layering (ADR 0005).
+UBLUE_TAP=ublue-os/tap
+
+# Homebrew refuses to load anything from a tap it has not been told to trust,
+# because loading a cask runs its Ruby. Trust is per tap, so an app calls this
+# after saying what that particular tap's casks do with it.
+brew_tap_trusted() {
+  run brew tap "$1"
+  run brew trust "$1"
+}
+
 # `distrobox list` prints a padded table with the name in the second column.
 distrobox_exists() {
   distrobox list 2>/dev/null | awk -F'|' 'NR>1 {gsub(/ /,"",$2); print $2}' | grep -qx "$1"

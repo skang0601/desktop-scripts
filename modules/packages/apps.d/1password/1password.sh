@@ -12,9 +12,8 @@ AGENT_SOCK="$HOME/.1password/agent.sock"
 # %post aborts under rpm-ostree, and the Flatpak has no --filesystem=home, so
 # its agent socket is created inside a redirected $HOME and never reaches the
 # ssh module.
-TAP=ublue-os/tap
-GUI_CASK="$TAP/1password-gui-linux"
-CLI_CASK="$TAP/1password-cli-linux"
+GUI_CASK="$UBLUE_TAP/1password-gui-linux"
+CLI_CASK="$UBLUE_TAP/1password-cli-linux"
 
 # op and the desktop app have to come from the same install. The app integration
 # refuses a CLI it cannot match to the running app -- a brew op against a
@@ -30,18 +29,15 @@ app_install() {
     return 0
   fi
 
-  run brew tap "$TAP"
-  # Casks from an untrusted tap are refused outright. Trusting one lets brew run
-  # its Ruby, and these casks use sudo: they install a polkit policy to
-  # /etc/polkit-1/actions, create the onepassword group, and set the setgid bit
-  # on 1Password-BrowserSupport and setuid on chrome-sandbox. That is more than
-  # a user-level install, and it is the reason the tap is named here rather than
-  # trusted blanket-wise elsewhere.
-  say "trusting $TAP; its casks run sudo for the polkit policy and setuid bits"
-  run brew trust "$TAP"
+  # Trusting the tap lets brew run its Ruby, and these casks use sudo: they
+  # install a polkit policy to /etc/polkit-1/actions, create the onepassword
+  # group, and set the setgid bit on 1Password-BrowserSupport and setuid on
+  # chrome-sandbox. That is more than a user-level install, and it is why the
+  # tap is named at each point of use rather than trusted blanket-wise.
+  say "trusting $UBLUE_TAP; its casks run sudo for the polkit policy and setuid bits"
+  brew_tap_trusted "$UBLUE_TAP"
 
-  # Prompts for sudo. The repo's installers call sudo inline, so this is a
-  # normal password prompt rather than something to work around.
+  # Prompts for sudo, for the polkit policy and setuid bits above.
   have 1password || run brew install --cask "$GUI_CASK"
   have op || run brew install --cask "$CLI_CASK"
 
