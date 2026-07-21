@@ -14,7 +14,6 @@ doom_installed() { [[ -x "$DOOM_DIR/bin/doom" || -x "$DOOM_LEGACY/bin/doom" ]]; 
 doom_legacy()    { [[ -x "$DOOM_LEGACY/bin/doom" ]]; }
 doom_home()      { doom_legacy && echo "$DOOM_LEGACY" || echo "$DOOM_DIR"; }
 doom_bin()       { echo "$(doom_home)/bin/doom"; }
-# Follow the legacy config path only when a legacy Doom is what's installed.
 doomdir()        { doom_legacy && echo "$DOOMDIR_LEGACY" || echo "$DOOMDIR"; }
 
 # Fedora's emacs is built four ways and the RPM picks pgtk, which draws
@@ -32,9 +31,6 @@ emacs_gui() {
 # Only the ones no other app already installs are here. Language servers live
 # with their languages -- gopls under go, zls under zig, rust-analyzer in the
 # rustup toolchain -- so a machine gets them whether or not it runs emacs.
-#
-# sqlite is deliberately absent: org +roam wants it, and Emacs 29 and later have
-# it built in, which is what org-roam uses.
 DOOM_DEPS=(
   # doom itself, and :tools magit
   "git        git         git"

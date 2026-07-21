@@ -14,9 +14,9 @@ _prepend_path "$HOME/go/bin"
 _prepend_path "$HOME/.cargo/bin"
 _prepend_path "$HOME/.local/bin"
 
-# JetBrains Toolbox is deliberately absent: it writes its own PATH line into
-# ~/.bash_profile and ~/.profile on first run, so it is already handled. Those
-# lines append unguarded, which duplicates the entry in nested login shells.
+# JetBrains Toolbox manages its own PATH, via unguarded lines it writes to
+# ~/.bash_profile and ~/.profile on first run -- which is why it can appear
+# twice on PATH in a nested login shell. Adding it here would compound that.
 
 # Homebrew is how CLI tooling is installed on atomic systems (ADR 0005).
 for _dir in /home/linuxbrew/.linuxbrew /opt/homebrew "$HOME/.linuxbrew"; do

@@ -80,7 +80,7 @@
 ;;
 ;; gptel talks to the ollama the packages module installs, on its default
 ;; 127.0.0.1:11434. Nothing leaves the machine and no API key is involved, so
-;; it is the default backend rather than one to switch to.
+;; it is the default backend.
 
 (defvar +ollama-host "127.0.0.1:11434")
 

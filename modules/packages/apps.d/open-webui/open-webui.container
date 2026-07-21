@@ -22,8 +22,7 @@ Network=host
 # Host networking also means this binds the host's interfaces directly, and the
 # image defaults to 0.0.0.0. Without this the UI is on the LAN.
 Environment=HOST=127.0.0.1
-# 8080 is busy enough on a desktop to be worth avoiding. Note 1234 is LM
-# Studio's default server port, if that ever lands on this machine.
+# 8080 is busy enough on a desktop to be worth avoiding.
 Environment=PORT=1234
 
 # Set explicitly: the image ships OLLAMA_BASE_URL=/ollama, which it rewrites to

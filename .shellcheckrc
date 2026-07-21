@@ -1,5 +1,3 @@
-# ShellCheck configuration for this repo.
-
 # SC2034 -- "appears unused". Nearly every file here sets variables that another
 # file consumes: apps.d entries declare APP_NAME and APP_GROUP for the packages
 # module to read, installers set DRY_RUN for lib/common.sh's `dry`, and doctor.sh

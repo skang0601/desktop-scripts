@@ -23,10 +23,8 @@ gsettings set org.gnome.desktop.wm.keybindings switch-input-source "[]"
 gsettings set org.gnome.desktop.wm.keybindings switch-input-source-backward "[]"
 
 echo "==> gtk-key-theme stays Default; GTK key themes are a dead end here"
-# Considered and rejected:
-#
-# Stock 'Emacs' binds <ctrl>a/e/f/n/w, exactly what the mac layer emits for
-# Cmd+A/E/F/N/W, so it breaks select-all, find and close.
+# The stock 'Emacs' theme binds <ctrl>a/e/f/n/w, exactly what the mac layer
+# emits for Cmd+A/E/F/N/W, so it breaks select-all, find and close.
 #
 # A custom theme binding only the free keys (d/h/k/u/y) avoids that collision
 # and still does nothing useful, because there is nothing left to apply it to:

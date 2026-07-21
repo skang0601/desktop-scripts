@@ -27,9 +27,9 @@ Match exec "SSH_AUTH_SOCK=%d/.1password/agent.sock timeout 2 ssh-add -l >/dev/nu
 Host *
 	# Only consulted when the agent above didn't answer. ssh would find this
 	# path on its own, but naming it keeps the fallback visible to a reader.
-	# No IdentitiesOnly: it limits ssh to keys with a matching file on disk,
-	# and the 1Password agent's keys have none, so it would break the path
-	# above rather than tighten it.
+	# IdentitiesOnly is left off: it limits ssh to keys with a matching file on
+	# disk, and the 1Password agent's keys have none, so it would break the
+	# agent path above rather than tighten it.
 	IdentityFile ~/.ssh/id_rsa
 
 	# Drop dead connections rather than hanging until TCP gives up.
