@@ -12,3 +12,4 @@ shell
 git
 ssh
 studio-display
+gdm-display
