@@ -1,10 +1,15 @@
-# State checks for the studio-display module. Sourced by ../../doctor.sh.
+# State checks for the gnome module. Sourced by ../../doctor.sh.
 # shellcheck shell=bash
 
 module_checks() {
   # shellcheck source=./common.sh
   source "$MODULE/common.sh"
-  local fix="./modules/studio-display/install.sh"
+  CHECK_GROUP=brightness brightness_checks
+  CHECK_GROUP="login screen" login_screen_checks
+}
+
+brightness_checks() {
+  local fix="./modules/gnome/install.sh"
 
   if [[ -d "$ASD_SRC/.git" ]]; then
     check_ok "asd-brightness checkout" "$ASD_SRC"
@@ -59,5 +64,20 @@ module_checks() {
     # Usually hidraw permissions: the display's nodes need uaccess.
     check_fail "display" "${out:-helper produced no output}" \
       "$ASD_SRC/install.sh --udev"
+  fi
+}
+
+login_screen_checks() {
+  local fix="./modules/gnome/install.sh"
+
+  if [[ ! -f "$GDM_SRC" ]]; then
+    check_warn "session layout" "$GDM_SRC missing; no saved display layout to copy"
+  elif [[ ! -f "$GDM_DEST" ]]; then
+    check_fail "display layout" "$GDM_DEST missing; login screen guesses its own scale" "$fix"
+  elif cmp -s "$GDM_SRC" "$GDM_DEST"; then
+    check_ok "display layout" "$GDM_DEST matches $GDM_SRC"
+  else
+    # Settings > Displays rewrites the user's copy on every change.
+    check_warn "display layout" "$GDM_DEST differs from $GDM_SRC" "$fix"
   fi
 }
