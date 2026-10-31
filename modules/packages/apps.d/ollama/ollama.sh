@@ -8,7 +8,10 @@ APP_GROUP="local llm"
 # The vendor tarball, not brew: brew's Linux bottle ships no CUDA runner, so it
 # would run inference on the CPU with nothing in the output to say so. See
 # README.md.
-VERSION="${OLLAMA_VERSION:-0.32.1}"
+#
+# qwen3.8 needs a 0.40 client: the registry answers older ones with a 412 and
+# "requires a newer version of Ollama" rather than serving the manifest.
+VERSION="${OLLAMA_VERSION:-0.40.13}"
 
 # Upstream moved the release asset from .tgz to .tar.zst; the older
 # ollama-linux-amd64.tgz URL 404s on current releases.
@@ -21,7 +24,8 @@ API=http://127.0.0.1:11434
 
 # min VRAM (MiB), model, context. Weights at the default Q4_K_M quantization
 # plus room for the KV cache, so the thresholds sit above the raw file size.
-# Descending: the first tier the card clears wins.
+# Descending: the first tier the GPUs clear wins -- see select_target for how
+# one card and several are weighed.
 #
 # One general model rather than a code-specialised one. There is no
 # qwen3.5-coder, and the older qwen2.5-coder cannot do tool calling: it
@@ -43,8 +47,13 @@ API=http://127.0.0.1:11434
 # CPU model buffer either way. That buffer is the token embedding matrix and is
 # structural, not VRAM pressure: it is the same size on 4b, which has GBs to
 # spare. It is not a signal to size tiers by.
+#
+# qwen3.8:27b is dense, so every weight is read for every token and any of it
+# left in system RAM runs at RAM bandwidth, roughly a tenth of VRAM's. Its
+# threshold is therefore VRAM only, even though ollama would load it into less
+# by spilling to host memory.
 MODEL_TIERS=(
-  "28000 qwen3.6     32768"
+  "22000 qwen3.8:27b 65536"
   "12000 qwen3.5:9b  32768"
   "5000  qwen3.5:4b  32768"
   "3000  qwen3.5:2b  8192"
@@ -100,48 +109,112 @@ cleanup_vendor_install() {
   fi
 }
 
-# Prefer a card with no display attached: inference on the card driving GNOME
-# competes with the compositor for VRAM and stutters the desktop. Ties and
-# single-card machines fall through to the largest card. Emits "uuid vram".
-gpu_target() {
+# One "uuid vram display" line per card, preferred first. A card with no
+# display attached sorts ahead: inference on the card driving GNOME competes
+# with the compositor for VRAM and stutters the desktop. Within each group,
+# larger first.
+gpu_cards() {
   have nvidia-smi || return 1
   nvidia-smi --query-gpu=uuid,memory.total,display_active \
              --format=csv,noheader,nounits 2>/dev/null \
     | awk -F', *' 'NF >= 3 { print ($3 == "Disabled" ? 0 : 1), $2, $1 }' \
     | sort -k1,1n -k2,2nr \
-    | awk 'NR == 1 { print $3, $2 }'
+    | awk '{ print $3, $2, $1 }'
 }
 
-# Emits "model context" for the first tier the card clears.
-select_tier() {
-  local vram="$1" tier min model context
+# How llama.cpp places layers, written into the unit as LLAMA_ARG_* variables,
+# which ollama passes through to the llama-server it spawns.
+#
+# One card: --fit, with the margin it leaves free. ollama otherwise passes
+# ~1.9GB for every card, and a card driving a display keeps a full GB because
+# GNOME and every GPU-accelerated app allocate from it after the model loads.
+FIT_MARGIN_DISPLAY=1024
+FIT_MARGIN_HEADLESS=256
+fit_margin() { (( $1 )) && echo "$FIT_MARGIN_DISPLAY" || echo "$FIT_MARGIN_HEADLESS"; }
+
+# Several cards: a fixed --tensor-split instead. --fit's estimate is too
+# conservative to pool with: on a 4080 + 2070 at 64K context it leaves ~2.6GB
+# and ~1.1GB unused and pushes 4 of qwen3.8:27b's 66 layers to the CPU, at 37
+# tok/s against 57 with all of them on the cards. Setting the split makes --fit
+# stand down entirely, so this is also what decides the layer count.
+#
+# The split is each card's total VRAM less a reserve, as raw MiB, which
+# llama.cpp takes as proportions. The display card's reserve covers what GNOME
+# and the desktop's apps already hold (~2GB measured) plus a GB of headroom.
+# Unlike --fit this cannot back off at load time: if something has taken more
+# of the display card than that, the load fails rather than spilling to RAM.
+SPLIT_RESERVE_DISPLAY=3072
+SPLIT_RESERVE_HEADLESS=256
+split_reserve() { (( $1 )) && echo "$SPLIT_RESERVE_DISPLAY" || echo "$SPLIT_RESERVE_HEADLESS"; }
+
+# Emits "model context uuids vram placement" for the largest tier that either
+# the preferred card holds alone or all cards hold together, preferring the
+# single card when both can. placement is fit:<margin> or split:<mib,...>.
+#
+# ollama splits a model that outgrows one card by layer, and the cards take
+# turns per token, so pooling adds capacity and not speed: it is worth it only
+# for a model that would otherwise not fit, and then it beats spilling to
+# system RAM by the ratio of VRAM to RAM bandwidth.
+select_target() {
+  local cards="$1" tier min model context
+  local one_uuid one_vram one_display all_uuids all_vram all_split
+  read -r one_uuid one_vram one_display <<<"$cards"
+  all_uuids="$(awk '{ print $1 }' <<<"$cards" | paste -sd,)"
+  all_vram="$(awk '{ s += $2 } END { print s + 0 }' <<<"$cards")"
+  all_split="$(while read -r _ vram display; do
+                 echo $(( vram - $(split_reserve "$display") ))
+               done <<<"$cards" | paste -sd,)"
+
   for tier in "${MODEL_TIERS[@]}"; do
     read -r min model context <<<"$tier"
-    (( vram >= min )) && { printf '%s %s\n' "$model" "$context"; return 0; }
+    if (( one_vram >= min )); then
+      printf '%s %s %s %s fit:%s\n' "$model" "$context" "$one_uuid" "$one_vram" "$(fit_margin "$one_display")"
+      return 0
+    elif (( all_vram >= min )); then
+      printf '%s %s %s %s split:%s\n' "$model" "$context" "$all_uuids" "$all_vram" "$all_split"
+      return 0
+    fi
   done
   return 1
+}
+
+# The unit's LLAMA_ARG_* lines for a placement.
+#
+# A split is only chosen when the model needs every card, so the vision
+# projector stays on the CPU rather than taking ~1.1GB of VRAM the layers
+# need; it only costs time when an image is attached. Left to ollama, the first
+# load fails with the projector on the GPU and is retried without it.
+placement_env() {
+  case "$1" in
+    fit:*)   printf 'Environment=LLAMA_ARG_FIT_TARGET=%s\n' "${1#fit:}" ;;
+    split:*) printf 'Environment=LLAMA_ARG_TENSOR_SPLIT=%s\n' "${1#split:}"
+             printf 'Environment=LLAMA_ARG_MMPROJ_OFFLOAD=0\n' ;;
+  esac
+}
+
+placement_current() {
+  [[ "$(grep '^Environment=LLAMA_ARG_' "$UNIT" 2>/dev/null)" == "$(placement_env "$PLACEMENT")" ]]
 }
 
 # app_check, app_install and app_checks all need the same answers, and each
 # nvidia-smi call costs about a tenth of a second. Resolved once per run.
 GPU_UUID=""
 GPU_VRAM=""
+PLACEMENT=""
 MODEL=""
 CONTEXT=""
 resolve_target() {
   [[ -n "$MODEL" ]] && return 0
 
-  local line
-  line="$(gpu_target)" || return 1
-  [[ -n "$line" ]] || return 1
-  read -r GPU_UUID GPU_VRAM <<<"$line"
-
-  local tier
-  tier="$(select_tier "$GPU_VRAM")" || return 1
-  read -r MODEL CONTEXT <<<"$tier"
+  local cards target
+  cards="$(gpu_cards)" || return 1
+  [[ -n "$cards" ]] || return 1
+  target="$(select_target "$cards")" || return 1
+  read -r MODEL CONTEXT GPU_UUID GPU_VRAM PLACEMENT <<<"$target"
 
   # Pinning by UUID rather than by index: PCI re-enumeration across reboots
-  # reorders indices, and CUDA_VISIBLE_DEVICES accepts either.
+  # reorders indices, and CUDA_VISIBLE_DEVICES accepts either, comma-separated
+  # when the tier needs more than one card.
   GPU_UUID="${OLLAMA_GPU_UUID:-$GPU_UUID}"
   MODEL="${OLLAMA_MODEL:-$MODEL}"
   CONTEXT="${OLLAMA_CONTEXT_LENGTH:-$CONTEXT}"
@@ -157,16 +230,16 @@ app_blocked() {
     return 0
   fi
 
-  local line
-  line="$(gpu_target)"
-  if [[ -z "$line" ]]; then
+  local cards
+  cards="$(gpu_cards)"
+  if [[ -z "$cards" ]]; then
     echo "nvidia-smi reports no GPU"
     return 0
   fi
 
-  local vram
-  vram="$(awk '{print $2}' <<<"$line")"
-  if ! select_tier "$vram" >/dev/null; then
+  if ! select_target "$cards" >/dev/null; then
+    local vram
+    vram="$(awk '{ s += $2 } END { print s + 0 }' <<<"$cards")"
     echo "no model tier fits ${vram}MiB of VRAM;"
     echo "the smallest needs ${MODEL_TIERS[-1]%% *}MiB"
     return 0
@@ -189,8 +262,9 @@ app_check() {
     && [[ "$(installed_version)" == "$VERSION" ]] \
     && [[ "$(readlink -f "$BIN")" == "$(readlink -f "$PREFIX/bin/ollama")" ]] \
     && [[ "$(systemctl --user is-active ollama.service 2>/dev/null)" == active ]] \
-    && grep -q "CUDA_VISIBLE_DEVICES=$GPU_UUID" "$UNIT" 2>/dev/null \
+    && grep -qx "Environment=CUDA_VISIBLE_DEVICES=$GPU_UUID" "$UNIT" 2>/dev/null \
     && grep -q "OLLAMA_VULKAN=0" "$UNIT" 2>/dev/null \
+    && placement_current \
     && grep -q "OLLAMA_CONTEXT_LENGTH=$CONTEXT" "$UNIT" 2>/dev/null \
     && grep -q "OLLAMA_MODEL=$MODEL" "$ROLES" 2>/dev/null \
     && model_pulled
@@ -246,7 +320,7 @@ install_tarball() {
 write_unit() {
   run mkdir -p "$(dirname "$UNIT")"
   if dry; then
-    printf '    [dry-run] write %s (CUDA_VISIBLE_DEVICES=%s)\n' "$UNIT" "$GPU_UUID"
+    printf '    [dry-run] write %s (CUDA_VISIBLE_DEVICES=%s, %s)\n' "$UNIT" "$GPU_UUID" "$PLACEMENT"
     return 0
   fi
   printf '%s\n' \
@@ -260,6 +334,7 @@ write_unit() {
     'Environment=OLLAMA_FLASH_ATTENTION=1' \
     'Environment=OLLAMA_KV_CACHE_TYPE=q8_0' \
     "Environment=OLLAMA_CONTEXT_LENGTH=$CONTEXT" \
+    "$(placement_env "$PLACEMENT")" \
     "ExecStart=$PREFIX/bin/ollama serve" \
     'Restart=on-failure' \
     '' \
@@ -347,8 +422,8 @@ app_checks() {
     check_fail "ollama.service" "not active" "systemctl --user enable --now ollama.service"
   fi
 
-  if grep -q "CUDA_VISIBLE_DEVICES=$GPU_UUID" "$UNIT" 2>/dev/null; then
-    check_ok "gpu pin" "${GPU_VRAM}MiB card $GPU_UUID"
+  if grep -qx "Environment=CUDA_VISIBLE_DEVICES=$GPU_UUID" "$UNIT" 2>/dev/null; then
+    check_ok "gpu pin" "${GPU_VRAM}MiB on $GPU_UUID"
   else
     check_fail "gpu pin" "$UNIT does not pin $GPU_UUID" \
       "./modules/packages/install.sh ollama"
@@ -360,6 +435,18 @@ app_checks() {
     check_ok "vulkan backend" "disabled, so the pin is the only device source"
   else
     check_fail "vulkan backend" "$UNIT does not set OLLAMA_VULKAN=0" \
+      "./modules/packages/install.sh ollama"
+  fi
+
+  # Without this the model still loads, but with layers on the CPU at half the
+  # speed, and nothing but `ollama ps` says so.
+  if placement_current; then
+    case "$PLACEMENT" in
+      fit:*)   check_ok "placement" "--fit, ${PLACEMENT#fit:}MiB left free" ;;
+      split:*) check_ok "placement" "tensor split ${PLACEMENT#split:} MiB" ;;
+    esac
+  else
+    check_fail "placement" "$UNIT does not place layers as $PLACEMENT" \
       "./modules/packages/install.sh ollama"
   fi
 

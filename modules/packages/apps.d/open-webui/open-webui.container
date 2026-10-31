@@ -4,7 +4,7 @@ After=ollama.service
 Wants=ollama.service
 
 [Container]
-Image=ghcr.io/open-webui/open-webui:v0.10.2
+Image=ghcr.io/open-webui/open-webui:v0.12.5
 Volume=%h/.local/share/open-webui:/app/backend/data:Z
 
 # Which model to default to is hardware-derived, so it cannot be a literal

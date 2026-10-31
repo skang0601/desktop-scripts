@@ -1,0 +1,51 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "openai/gpt-6.1-terra",
+  "agents": {
+    "explore": {
+      "model": "ollama/qwen3.8:27b"
+    },
+    "general": {
+      "model": "ollama/qwen3.8:27b"
+    },
+    "coder": {
+      "description": "Implements and debugs bounded code changes using the local Devstral coding model",
+      "mode": "subagent",
+      "model": "ollama/devstral-small-2:24b-48k"
+    }
+  },
+  "providers": {
+    "ollama": {
+      "settings": {
+        "baseURL": "http://127.0.0.1:11434/v1"
+      },
+      "models": {
+        "qwen3.8:27b": {
+          "name": "qwen3.8:27b",
+          "capabilities": {
+            "tools": true,
+            "input": ["text", "image"],
+            "output": ["text"]
+          },
+          "limit": {
+            "context": 65536,
+            "output": 8192
+          }
+        },
+        "devstral-small-2:24b-48k": {
+          "modelID": "devstral-small-2:24b-48k",
+          "name": "Devstral Small 2 24B (48K)",
+          "capabilities": {
+            "tools": true,
+            "input": ["text", "image"],
+            "output": ["text"]
+          },
+          "limit": {
+            "context": 49152,
+            "output": 8192
+          }
+        }
+      }
+    }
+  }
+}

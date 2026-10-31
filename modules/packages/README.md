@@ -27,9 +27,10 @@ An app with more to say than fits this table has a README beside its script.
 | [dev-box](apps.d/dev-box) | Fedora toolbox | `-devel` headers for building against system libraries, without layering |
 | steam | Flatpak | preinstalled on Bazzite, so usually a no-op |
 | jetbrains-toolbox | brew cask from `ublue-os/tap` (tarball without brew) | bootstraps Toolbox, which then self-updates |
-| [ollama](apps.d/ollama) | tarball | brew's bottle has no CUDA; auto-pins to the GPU not driving the display |
+| [ollama](apps.d/ollama) | tarball | brew's bottle has no CUDA; auto-pins to the GPU not driving the display, or pools every card when the model needs them |
 | [searxng](apps.d/searxng) | podman quadlet | local metasearch on loopback; web-search backend for open-webui and gptel |
 | [open-webui](apps.d/open-webui) | podman quadlet | browser front end for ollama at ai.localhost:1234; published only as an image |
+| [opencode-desktop](apps.d/opencode-desktop) | brew cask | config linked from the repo; local qwen and Devstral subagents |
 
 ## Install strategy
 

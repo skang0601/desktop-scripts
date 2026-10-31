@@ -24,15 +24,20 @@ on current releases.
 
 ## Choosing the GPU and the model
 
-Neither the card nor the model is named in the script. `nvidia-smi` reports
+Neither the cards nor the model are named in the script. `nvidia-smi` reports
 `display_active` per GPU, so the installer prefers a card with no display
 attached -- inference on the card driving GNOME competes with the compositor
 for VRAM and stutters the desktop -- and falls back to the largest card when
-every card drives one. On this desktop that picks the 2070 Super over the 4080
-Super without either appearing in the script.
+every card drives one.
+
+When all the cards together clear a larger tier than the preferred card does
+alone, the installer pins all of them instead; see [Pooling
+cards](#pooling-cards). On this desktop that pools the 2070 Super and the 4080
+Super for `qwen3.8:27b`, without either card appearing in the script.
 
 The pin is by GPU UUID rather than by numeric index, which PCI re-enumeration
-reorders across reboots. `CUDA_VISIBLE_DEVICES` accepts either.
+reorders across reboots. `CUDA_VISIBLE_DEVICES` accepts either, comma-separated
+for several cards.
 
 ### CUDA_VISIBLE_DEVICES is not enough on its own
 
@@ -55,9 +60,9 @@ inference runs on the wrong card.
 `OLLAMA_LLM_LIBRARY=cuda` looks like the knob for this and is not: it matches
 nothing and drops the server to CPU-only inference.
 
-That card's VRAM then selects from `MODEL_TIERS`, smallest sufficient tier
-first, with thresholds set above the raw Q4_K_M file size to leave room for
-context. 8192MiB selects `qwen3.5:4b`.
+VRAM selects from `MODEL_TIERS`, largest tier first, with thresholds set above
+the raw Q4_K_M file size to leave room for context. An 8192MiB card on its own
+selects `qwen3.5:4b`.
 
 The 9b row asks for a 12GB card even though it runs on 8GB. Measured on the
 2070 Super:
@@ -94,16 +99,54 @@ involved:
 The same request without `tools` answers normally on both, so it is the model's
 limit and not a misconfiguration.
 
-`qwen3.6` exists but is 23.9GB of weights and wants ~28GB of VRAM, so the 8GB
-tier stops at 3.5.
+### Pooling cards
+
+`qwen3.8:27b` (16.8GB of weights, plus a 0.9GB vision projector) fits neither
+card alone, and it is dense, so every weight is read for every token. The
+cards are pooled rather than letting it spill to system RAM. ollama splits the
+model by layer and the cards take turns per token, so pooling adds capacity
+and not speed. But RAM is roughly a tenth of VRAM's bandwidth, so any layers
+left there cost more than the whole difference between the two cards.
+
+Measured on the 4080 Super + 2070 Super (ollama 0.40.13, Q4_K_M, q8_0 KV):
+
+| placement | context | layers on GPU | tok/s |
+| --- | --- | --- | --- |
+| ollama's default `--fit` margin (1912MiB per card) | 32K | 59/66 | ~28 |
+| `--fit`, margins 1024/256 | 32K | 66/66 | 50-55 |
+| `--fit`, margins 1024/256 | 64K | 62/66 | ~37 |
+| `--tensor-split 7936,13304`, projector on CPU | 64K | 66/66 | 52-59 |
+
+`--fit` underestimates what fits at long contexts, leaving ~2GB per card
+unused while spilling, so a pooled tier sets the split explicitly. That also
+turns `--fit` off entirely. The installer derives the split from each card's
+total VRAM less a reserve (256MiB headless, 3GiB on the display card for
+GNOME and its apps), and keeps the vision projector on the CPU, where it costs
+time only when an image is attached.
+
+Two consequences follow:
+
+- The split cannot back off at load time. If something holds more than ~3GB
+  of the display card when the model loads, the load fails with a CUDA OOM
+  rather than spilling.
+- `OLLAMA_CONTEXT_LENGTH` and the split apply to every model on the server. A
+  full-attention model's KV cache is much larger than qwen3.8's hybrid one,
+  and `devstral-small-2:24b` at 64K OOMs on the 2070's share. A second model
+  needs a Modelfile alias with its own `num_ctx`; see
+  [opencode-desktop](../opencode-desktop).
+
+The iGPU is no help here. It has no memory of its own, and ollama only reaches
+it through Vulkan, which is disabled so that the CUDA pin holds.
+
+qwen3.8 needs ollama 0.40 or later. Older clients get a 412 from the registry.
 
 ### The chosen model is written down
 
 `app_install` records it at `~/.local/share/ollama/roles.env`:
 
 ```
-OLLAMA_MODEL=qwen3.5:9b
-OLLAMA_CONTEXT_LENGTH=32768
+OLLAMA_MODEL=qwen3.8:27b
+OLLAMA_CONTEXT_LENGTH=65536
 ```
 
 The tier table is the only thing that knows what this machine picked, and two
