@@ -59,9 +59,9 @@ MODEL_TIERS=(
   "3000  qwen3.5:2b  8192"
 )
 
-# The tier table is the only thing that knows which model this install chose,
-# and two consumers need the answer: open-webui's installer for DEFAULT_MODELS,
-# and Doom's gptel config. Written once here rather than each of them guessing.
+# The tier table is the only thing that knows which model this install chose.
+# Doom's gptel config reads it, and opencode-desktop checks its own literal
+# model names against it, rather than either guessing.
 ROLES="$HOME/.local/share/ollama/roles.env"
 
 # Traces of ollama.com/install.sh, whose system unit would bind 11434 ahead of
@@ -463,8 +463,8 @@ app_checks() {
     check_warn "$MODEL" "not pulled" "ollama pull $MODEL"
   fi
 
-  # open-webui and gptel both read this rather than each rediscovering the
-  # choice, so a stale one points them at the wrong model silently.
+  # gptel reads this rather than rediscovering the choice, so a stale one
+  # points it at the wrong model silently.
   if grep -q "OLLAMA_MODEL=$MODEL" "$ROLES" 2>/dev/null; then
     check_ok "model roles" "$ROLES"
   else

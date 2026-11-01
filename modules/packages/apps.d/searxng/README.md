@@ -1,11 +1,10 @@
 # searxng
 
 A local metasearch engine on `127.0.0.1:8888`, used as the web-search backend
-for both [open-webui](../open-webui) and Doom's gptel tools.
+for Doom's gptel tools.
 
-Self-hosted rather than an API service so there is no key to hold and no
-account, and so one backend serves both consumers: open-webui has a native
-`searxng` engine, and the Emacs tool queries the same JSON endpoint.
+Self-hosted rather than an API service so there is no key to hold, no account,
+and the queries stay on this machine. The Emacs tool queries its JSON endpoint.
 
 ## The JSON API is off by default
 
@@ -30,8 +29,7 @@ This image serves through granian, which ignores `SEARXNG_BIND_ADDRESS` and
 listens on all interfaces whatever that variable is set to. Under host
 networking it therefore lands on the LAN, and setting the variable gives a
 false sense that it has not. Publishing the port puts the restriction in podman,
-where the application cannot override it, and open-webui still reaches it
-because host networking shares the host's loopback.
+where the application cannot override it.
 
 `app_check` asserts the bound address rather than only reporting it, so a
 `.container` edit is enough to get the change applied. The symlink path is

@@ -4,9 +4,8 @@
 use_default_settings: true
 
 search:
-  # The image ships formats: [html]. Both consumers here ask for JSON --
-  # open-webui's searxng engine sends format=json, and the gptel tool curls the
-  # same endpoint -- and without this SearXNG answers 403 to every one of them.
+  # The image ships formats: [html]. The gptel tool asks for format=json, and
+  # without this SearXNG answers 403 to every request.
   formats:
     - html
     - json

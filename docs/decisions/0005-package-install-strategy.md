@@ -83,7 +83,7 @@ correct through every failure mode.
 | Shape | Mechanism | For | Example |
 | --- | --- | --- | --- |
 | Interactive box | distrobox | a shell with the host's `$HOME` | `dev-box` |
-| Long-running service | podman quadlet | a daemon | `open-webui`, `searxng` |
+| Long-running service | podman quadlet | a daemon | `searxng` |
 
 Two consequences are worth writing down, because both have already cost a
 debugging session:

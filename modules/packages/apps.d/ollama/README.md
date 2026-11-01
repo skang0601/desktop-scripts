@@ -87,8 +87,8 @@ There is no `qwen3.5-coder`, and the older `qwen2.5-coder` cannot do tool
 calling. It advertises the `tools` capability and then emits a bare JSON object
 instead of the tagged call its template parses, so ollama returns
 `tool_calls: null` with the JSON left in `content`. Anything that offers it
-tools -- open-webui injects its knowledge-base tools by default -- prints that
-JSON into the chat instead of answering. Measured against ollama alone, no UI
+tools -- every agent harness does -- prints that JSON into the chat instead of
+answering. Measured against ollama alone, no UI
 involved:
 
 | model | same request with `tools` |
@@ -149,10 +149,10 @@ OLLAMA_MODEL=qwen3.8:27b
 OLLAMA_CONTEXT_LENGTH=65536
 ```
 
-The tier table is the only thing that knows what this machine picked, and two
-consumers need the answer: [open-webui](../open-webui)'s installer for
-`DEFAULT_MODELS`, and Doom's `config.el` for `gptel-model`. Neither guesses
-from the name. `ollama pull qwen3.5` lands as `qwen3.5:latest`, so `app_check`
+The tier table is the only thing that knows what this machine picked, and
+Doom's `config.el` reads it for `gptel-model` rather than guessing from the
+name. [opencode-desktop](../opencode-desktop) names its models literally and
+checks them against this file. `ollama pull qwen3.5` lands as `qwen3.5:latest`, so `app_check`
 normalises a bare tag before comparing against what `ollama list` reports.
 
 ```sh

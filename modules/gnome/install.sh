@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# GNOME desktop: Studio Display brightness control, and a login screen that
-# uses the session's display layout.
+# GNOME desktop: Studio Display brightness control, a login screen that uses
+# the session's display layout, and no automatic suspend.
 #
 #   ./install.sh --dry-run
 set -euo pipefail
@@ -99,10 +99,32 @@ install_login_screen() {
   say "takes effect at the next login screen"
 }
 
-# Each part is independent, so one failing does not stop the other.
+install_power() {
+  if [[ "$(gsettings get "$POWER_SCHEMA" "$POWER_KEY")" == "'nothing'" ]]; then
+    skip "session" "$POWER_KEY is nothing"
+  else
+    say "turning off automatic suspend in this session"
+    run gsettings set "$POWER_SCHEMA" "$POWER_KEY" nothing
+  fi
+
+  if cmp -s "$GDM_POWER_SRC" "$GDM_POWER_DEST" && [[ "$GDM_DCONF_DB" -nt "$GDM_POWER_DEST" ]]; then
+    skip "login screen" "$GDM_POWER_DEST compiled into $GDM_DCONF_DB"
+    return 0
+  fi
+
+  # A copy, not a symlink: dconf update runs as root and the login screen's
+  # user cannot read this home. The keyfile does nothing until compiled.
+  say "turning off automatic suspend at the login screen"
+  run sudo install -m644 "$GDM_POWER_SRC" "$GDM_POWER_DEST"
+  run sudo dconf update
+}
+
+# Each part is independent, so one failing does not stop the others.
 status=0
 say "brightness"
 install_brightness || status=1
 say "login screen"
 install_login_screen || status=1
+say "power"
+install_power || status=1
 exit "$status"

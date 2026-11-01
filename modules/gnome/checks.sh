@@ -6,6 +6,25 @@ module_checks() {
   source "$MODULE/common.sh"
   CHECK_GROUP=brightness brightness_checks
   CHECK_GROUP="login screen" login_screen_checks
+  CHECK_GROUP=power power_checks
+}
+
+power_checks() {
+  local fix="./modules/gnome/install.sh" value
+  value="$(gsettings get "$POWER_SCHEMA" "$POWER_KEY")"
+  if [[ "$value" == "'nothing'" ]]; then
+    check_ok "idle suspend" "off in this session"
+  else
+    check_fail "idle suspend" "$POWER_KEY is $value; the desktop leaves the tailnet when idle" "$fix"
+  fi
+
+  if ! cmp -s "$GDM_POWER_SRC" "$GDM_POWER_DEST"; then
+    check_fail "login screen suspend" "$GDM_POWER_DEST missing or differs from the repo" "$fix"
+  elif [[ ! "$GDM_DCONF_DB" -nt "$GDM_POWER_DEST" ]]; then
+    check_fail "login screen suspend" "$GDM_POWER_DEST is not compiled into $GDM_DCONF_DB" "sudo dconf update"
+  else
+    check_ok "login screen suspend" "off"
+  fi
 }
 
 brightness_checks() {

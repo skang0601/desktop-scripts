@@ -85,7 +85,7 @@ originals vanish.
 
 ### Tools
 
-gptel is given the same two capabilities open-webui has:
+gptel is given two tools:
 
 | tool | confirms? | |
 | --- | --- | --- |

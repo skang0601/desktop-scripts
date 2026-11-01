@@ -74,6 +74,7 @@ A module opts in by adding `checks.sh` defining `module_checks()`. As with
 | [`git`](modules/git/) | global git config |
 | [`ssh`](modules/ssh/) | ssh client config; keys come from the 1Password agent |
 | [`gnome`](modules/gnome/) | Studio Display brightness (slider, keys, auto-brightness) via the [asd-brightness](https://github.com/skang0601/asd-brightness) extension, and the login screen at the session's display scale |
+| [`tailscale`](modules/tailscale/) | joins the tailnet and serves the OpenCode server on it, for the phone |
 
 Each module owns its own config, installer and README. Adding one means creating
 `modules/<name>/install.sh` and listing it in the relevant host file -- there is

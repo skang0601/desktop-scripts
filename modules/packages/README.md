@@ -28,9 +28,9 @@ An app with more to say than fits this table has a README beside its script.
 | steam | Flatpak | preinstalled on Bazzite, so usually a no-op |
 | jetbrains-toolbox | brew cask from `ublue-os/tap` (tarball without brew) | bootstraps Toolbox, which then self-updates |
 | [ollama](apps.d/ollama) | tarball | brew's bottle has no CUDA; auto-pins to the GPU not driving the display, or pools every card when the model needs them |
-| [searxng](apps.d/searxng) | podman quadlet | local metasearch on loopback; web-search backend for open-webui and gptel |
-| [open-webui](apps.d/open-webui) | podman quadlet | browser front end for ollama at ai.localhost:1234; published only as an image |
+| [searxng](apps.d/searxng) | podman quadlet | local metasearch on loopback; web-search backend for gptel |
 | [opencode-desktop](apps.d/opencode-desktop) | brew cask | config linked from the repo; local qwen and Devstral subagents |
+| [opencode](apps.d/opencode) | brew | `opencode serve` as a `--user` unit on loopback, password-protected, for the phone over Tailscale |
 
 ## Install strategy
 
@@ -57,7 +57,7 @@ interactive boxes that share `$HOME` -- see [dev-box](apps.d/dev-box). A
 long-running service instead takes a podman **quadlet**: a `.container` file
 symlinked into `~/.config/containers/systemd/`, which podman's systemd
 generator turns into a `--user` service.
-[open-webui](apps.d/open-webui) and [searxng](apps.d/searxng) are the examples.
+[searxng](apps.d/searxng) is the example.
 
 Three things about quadlets have each cost a debugging session, so they are
 worth knowing before writing the fourth:

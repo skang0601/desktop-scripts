@@ -85,8 +85,7 @@
 (defvar +ollama-host "127.0.0.1:11434")
 
 ;; ollama picks the model from the GPU's VRAM and writes the choice here, so
-;; the tag differs per machine and is read rather than named. open-webui's
-;; installer reads the same file.
+;; the tag differs per machine and is read rather than named.
 (defvar +ollama-roles-file "~/.local/share/ollama/roles.env")
 
 ;; Only used when neither the roles file nor the server can answer.
@@ -162,7 +161,7 @@
 
 ;;; Local LLM tools
 ;;
-;; The same two capabilities open-webui has, on the Emacs side. Search goes to
+;; Web search and file access for the model. Search goes to
 ;; the searxng the packages module runs on loopback, so it needs no API key and
 ;; the queries stay on this machine.
 

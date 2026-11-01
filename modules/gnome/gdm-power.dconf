@@ -1,0 +1,5 @@
+# Installed to /etc/dconf/db/gdm.d/ by install.sh and compiled by `dconf update`.
+# The login screen has its own power settings, and their default suspends the
+# machine 20 minutes after boot if nobody logs in.
+[org/gnome/settings-daemon/plugins/power]
+sleep-inactive-ac-type='nothing'

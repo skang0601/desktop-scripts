@@ -19,3 +19,14 @@ asd_built() { cat "$ASD_STAMP" 2>/dev/null || true; }
 # whatever user GDM runs it as, the same layout as this session.
 GDM_SRC="$HOME/.config/monitors.xml"
 GDM_DEST=/etc/xdg/monitors.xml
+
+# Never suspend on idle. The phone reaches ollama and the OpenCode server on
+# this machine over Tailscale, and a suspended desktop drops off the tailnet.
+# Only automatic suspend is turned off; the screen still blanks, and suspend
+# from the menu still works.
+POWER_SCHEMA=org.gnome.settings-daemon.plugins.power
+POWER_KEY=sleep-inactive-ac-type
+GDM_POWER_SRC="$MODULE/gdm-power.dconf"
+GDM_POWER_DEST=/etc/dconf/db/gdm.d/90-desktop-scripts-power
+# What `dconf update` compiles gdm.d into, and what the login screen reads.
+GDM_DCONF_DB=/etc/dconf/db/gdm
