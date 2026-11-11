@@ -169,6 +169,13 @@ When the per-app layer is down, terminals get the global translations
 instead: Cmd+C/V do nothing, while Cmd+Z and Cmd+S send Ctrl+Z and Ctrl+S.
 `doctor.sh keybindings` reports that state.
 
+## GNOME Shell's own text fields
+
+The overview's search entry and the Shell's dialogs (run, polkit, unlock) are
+Clutter text fields. They take Ctrl+C/X/V but not Ctrl+Insert or Shift+Delete,
+so there Cmd+C/X/V send Ctrl+C/X/V. Nothing runs in them that Ctrl+C could
+interrupt.
+
 ## Emacs
 
 Ctrl and Option are Emacs's own, verbatim. Cmd+key reaches Emacs as Super+key
