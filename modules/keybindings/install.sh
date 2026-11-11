@@ -89,34 +89,44 @@ else
   fi
 fi
 
-say "installing /etc/keyd/default.conf"
-# On ostree systems /etc is writable, and files with no /usr/etc counterpart
-# survive upgrades and rebases via the 3-way merge.
-run sudo install -Dm644 "$MODULE/default.conf" /etc/keyd/default.conf
+# Each file is installed only when it differs, and keyd is restarted only when
+# one of them did: an unconditional pass on every bootstrap was what crashed it.
+keyd_changed=0
+install_if_changed() {
+  local src="$1" dest="$2"
+  if cmp -s "$src" "$dest"; then
+    skip "$(basename "$dest")" "$dest matches the repo"
+    return 1
+  fi
+  say "installing $dest"
+  # On ostree systems /etc is writable, and files with no /usr/etc counterpart
+  # survive upgrades and rebases via the 3-way merge.
+  run sudo install -Dm644 "$src" "$dest"
+}
 
-say "installing libinput touchpad quirk"
-run sudo install -Dm644 "$MODULE/local-overrides.quirks" /etc/libinput/local-overrides.quirks
-
-say "installing the keyd.service restart drop-in"
+install_if_changed "$MODULE/default.conf" /etc/keyd/default.conf && keyd_changed=1
+install_if_changed "$MODULE/local-overrides.quirks" /etc/libinput/local-overrides.quirks || true
 # Before enabling, so the first start already has the policy.
-run sudo install -Dm644 "$MODULE/keyd-restart.conf" \
-  /etc/systemd/system/keyd.service.d/restart.conf
-run sudo systemctl daemon-reload
+if install_if_changed "$MODULE/keyd-restart.conf" /etc/systemd/system/keyd.service.d/restart.conf; then
+  run sudo systemctl daemon-reload
+  keyd_changed=1
+fi
 
-say "enabling keyd.service"
 # Requires the packaged keyd. A source build installs its unit to
 # /usr/local/lib/systemd/system, which systemd on Fedora Atomic does not load:
 # the service reports enabled and never starts (keyd issue #1139).
-run sudo systemctl enable --now keyd
-
-# keyd 2.6.0 has segfaulted in process_event applying a changed config through
-# `keyd reload`, which leaves every keyboard unmapped while systemd still
-# reports the unit enabled. Reload is still the right call -- it keeps the
-# device grabs, where a restart drops and re-takes them.
-run sudo keyd reload
-if ! dry && ! systemctl is-active --quiet keyd; then
-  warn "keyd died applying the config; restarting it"
+if ! systemctl is-enabled --quiet keyd 2>/dev/null || ! systemctl is-active --quiet keyd; then
+  say "enabling keyd.service"
+  run sudo systemctl enable --now keyd
+elif (( keyd_changed )); then
+  # A restart rather than `keyd reload`: keyd 2.6.0 segfaults in process_event
+  # on the first key event after a reload, every time, while a freshly started
+  # process does not. The restart drops and re-takes the device grabs, which
+  # costs a keystroke.
+  say "restarting keyd to apply the change"
   run sudo systemctl restart keyd
+else
+  skip keyd "running with the installed config"
 fi
 
 say "installing user app.conf"
@@ -152,6 +162,60 @@ if ! id -nG "$USER" | grep -qw keyd; then
 
   echo "    log out and back in for this to take effect"
 fi
+
+install_mapper_extension() {
+  local uuid=keyd@keyd.rvaiya.github.com src="" d
+  local dest="$HOME/.local/share/gnome-shell/extensions/$uuid"
+  for d in /usr/share/keyd/gnome-extension-45 /usr/local/share/keyd/gnome-extension-45; do
+    [[ -f "$d/extension.js" ]] && { src="$d"; break; }
+  done
+  if [[ -z "$src" ]]; then
+    warn "keyd's GNOME extension is not where the package puts it; per-app remapping will not work"
+    return 0
+  fi
+
+  # keyd ships a shell-version list that stops at whatever GNOME was current at
+  # its release, and the Shell skips an extension whose list omits the running
+  # major, so every GNOME upgrade silently stops per-app remapping until keyd
+  # catches up. The extension only reads the focused window's class and title,
+  # which has been stable since the GNOME 45 port, so the list is widened ahead.
+  # A copy rather than keyd-application-mapper's symlink, since the package's
+  # metadata is read-only.
+  local want
+  want="$(python3 -c 'import json,sys
+d=json.load(open(sys.argv[1]))
+d["shell-version"]=[str(v) for v in range(45,61)]
+print(json.dumps(d,indent=2))' "$src/metadata.json")"
+
+  if cmp -s "$src/extension.js" "$dest/extension.js" \
+      && [[ "$(cat "$dest/metadata.json" 2>/dev/null)" == "$want" ]]; then
+    skip "mapper extension" "$dest, GNOME 45-60"
+  else
+    say "installing keyd's GNOME extension to $dest"
+    run mkdir -p "$dest"
+    run install -m644 "$src/extension.js" "$dest/extension.js"
+    if dry; then
+      printf '    [dry-run] write %s/metadata.json with shell-version 45-60\n' "$dest"
+    else
+      printf '%s\n' "$want" >"$dest/metadata.json"
+    fi
+    echo "    the Shell reads extension metadata at login; log out and back in"
+  fi
+
+  # Written to the setting directly: the Shell refuses to record an extension
+  # it has not loaded, which is every extension until the next login.
+  local enabled
+  enabled="$(gsettings get org.gnome.shell enabled-extensions)"
+  if [[ "$enabled" != *"'$uuid'"* ]]; then
+    say "adding $uuid to enabled-extensions"
+    if [[ "$enabled" == "@as []" ]]; then
+      run gsettings set org.gnome.shell enabled-extensions "['$uuid']"
+    else
+      run gsettings set org.gnome.shell enabled-extensions "${enabled%]}, '$uuid']"
+    fi
+  fi
+}
+install_mapper_extension
 
 cat <<'EOF'
 

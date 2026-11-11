@@ -1,12 +1,35 @@
 # State checks for the keybindings module. Sourced by ../../doctor.sh.
 # shellcheck shell=bash
 
+# keyd 2.6.0 segfaults on the first key event after loading its config, so
+# crashes right after a start or reload are the known bug and say nothing new.
+# A crash with no config load shortly before it is a different fault, and is
+# the one worth reporting. Every config load logs a burst of "DEVICE: match"
+# lines, which is what marks one in the journal.
+keyd_crash_check() {
+  local since=-24h counts after_load running
+  counts="$(journalctl -u keyd --since="$since" --no-pager -o short-unix 2>/dev/null | awk '
+    /DEVICE: match/ { loaded = $1 }
+    /code=dumped/   { if (loaded != "" && $1 - loaded < 30) a++; else r++ }
+    END { printf "%d %d\n", a, r }')"
+  read -r after_load running <<<"${counts:-0 0}"
+
+  if (( running > 0 )); then
+    check_warn "keyd stability" "$running crash(es) since $since with no config load before them" \
+      "coredumpctl info keyd"
+  elif (( after_load > 0 )); then
+    check_ok "keyd stability" "$after_load crash(es) since $since, all just after a config load (keyd 2.6.0)"
+  else
+    check_ok "keyd stability" "no crashes since $since"
+  fi
+}
+
 module_checks() {
   have keyd || { check_fail "keyd" "not installed" "./modules/keybindings/install.sh"; return 0; }
   check_ok "keyd" "$(keyd --version 2>&1 | head -1)"
 
   check_service_active "keyd.service" keyd "sudo systemctl enable --now keyd"
-  check_no_recent_crash "keyd stability" keyd
+  keyd_crash_check
 
   check_installed_matches "keyd restart drop-in" \
     "$MODULE/keyd-restart.conf" /etc/systemd/system/keyd.service.d/restart.conf \
