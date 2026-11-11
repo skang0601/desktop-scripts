@@ -164,53 +164,28 @@ if ! id -nG "$USER" | grep -qw keyd; then
 fi
 
 install_mapper_extension() {
-  local uuid=keyd@keyd.rvaiya.github.com src="" d
+  local uuid=keyd@keyd.rvaiya.github.com
+  local src="$MODULE/gnome-extension"
   local dest="$HOME/.local/share/gnome-shell/extensions/$uuid"
-  for d in /usr/share/keyd/gnome-extension-45 /usr/local/share/keyd/gnome-extension-45; do
-    [[ -f "$d/extension.js" ]] && { src="$d"; break; }
-  done
-  if [[ -z "$src" ]]; then
-    warn "keyd's GNOME extension is not where the package puts it; per-app remapping will not work"
-    return 0
+  # gnome-extension/ is keyd's own extension with the changes listed at the top
+  # of its extension.js, and its shell-version list widened through GNOME 60:
+  # the packaged list stops at the GNOME current when keyd was released, and
+  # the Shell skips an extension whose list omits the running version.
+  #
+  # This is the hash of the packaged file it was forked from. A different one
+  # means keyd changed its extension, and the fork needs reviewing against it.
+  local upstream=/usr/share/keyd/gnome-extension-45/extension.js
+  local forked_from=168660dc5aa7816683498657a2106f39197f2859323442dafdbe7274657bc81e
+  if [[ -f "$upstream" ]] && [[ "$(sha256sum "$upstream" | cut -d' ' -f1)" != "$forked_from" ]]; then
+    warn "keyd's packaged GNOME extension has changed; compare $upstream with $src/extension.js"
   fi
 
-  # keyd ships a shell-version list that stops at whatever GNOME was current at
-  # its release, and the Shell skips an extension whose list omits the running
-  # major, so every GNOME upgrade silently stops per-app remapping until keyd
-  # catches up. The extension only reads the focused window's class and title,
-  # which has been stable since the GNOME 45 port, so the list is widened ahead.
-  # A copy rather than keyd-application-mapper's symlink, since the package's
-  # metadata is read-only.
-  local want want_js
-  want="$(python3 -c 'import json,sys
-d=json.load(open(sys.argv[1]))
-d["shell-version"]=[str(v) for v in range(45,61)]
-print(json.dumps(d,indent=2))' "$src/metadata.json")"
-
-  # The extension starts `keyd-application-mapper -d` on enable and pkills it
-  # on disable. keyd-application-mapper.service owns the mapper instead, so
-  # both lines are removed: left in, the extension's copy and the unit's race
-  # for the mapper's lock, and a disable kills the unit's process.
-  want_js="$(grep -v -e "spawn_command_line_async('keyd-application-mapper" \
-                     -e "spawn_command_line_async('pkill -f keyd-application-mapper" \
-                     "$src/extension.js")"
-  if [[ "$want_js" == "$(cat "$src/extension.js")" ]]; then
-    warn "keyd's extension no longer spawns the mapper the way install.sh expects; check $src/extension.js"
-  fi
-
-  if [[ "$(cat "$dest/extension.js" 2>/dev/null)" == "$want_js" ]] \
-      && [[ "$(cat "$dest/metadata.json" 2>/dev/null)" == "$want" ]]; then
-    skip "mapper extension" "$dest, GNOME 45-60, mapper left to systemd"
+  if cmp -s "$src/extension.js" "$dest/extension.js" && cmp -s "$src/metadata.json" "$dest/metadata.json"; then
+    skip "mapper extension" "$dest matches the repo"
   else
     say "installing keyd's GNOME extension to $dest"
-    run mkdir -p "$dest"
-    if dry; then
-      printf '    [dry-run] write %s/extension.js without the mapper spawn\n' "$dest"
-      printf '    [dry-run] write %s/metadata.json with shell-version 45-60\n' "$dest"
-    else
-      printf '%s\n' "$want_js" >"$dest/extension.js"
-      printf '%s\n' "$want" >"$dest/metadata.json"
-    fi
+    run install -Dm644 "$src/extension.js" "$dest/extension.js"
+    run install -Dm644 "$src/metadata.json" "$dest/metadata.json"
     echo "    the Shell reads extensions at login; log out and back in"
   fi
 

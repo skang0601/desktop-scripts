@@ -19,15 +19,22 @@ below the display server, so Wayland's restrictions do not apply.
 
 - **The extension** ships in the keyd package at
   `/usr/share/keyd/gnome-extension-45/` (UUID `keyd@keyd.rvaiya.github.com`)
-  and is not on extensions.gnome.org. `install.sh` copies it to
-  `~/.local/share/gnome-shell/extensions/` with two changes:
-  - **`shell-version` set to 45 through 60.** The packaged list ends at the
-    GNOME release current when keyd shipped, and the Shell silently skips an
+  and is not on extensions.gnome.org. The repo carries an adjusted copy in
+  `gnome-extension/`, which `install.sh` installs:
+  - **`shell-version` is 45 through 60.** The packaged list ends at the GNOME
+    release current when keyd shipped, and the Shell silently skips an
     extension whose list omits the running version, so every GNOME upgrade
     would disable it.
-  - **The mapper spawn and kill removed.** As shipped, the extension starts
+  - **It does not start or kill the mapper.** The packaged extension starts
     `keyd-application-mapper -d` on enable and kills it on disable; the systemd
     unit owns the mapper instead.
+  - **It reports the overview** as the class `gnome-shell-overview`, and the
+    focused window again when the overview closes. The overview is not a
+    window, so otherwise the last window's section applies to its search
+    entry.
+
+  The installer records the hash of the packaged `extension.js` the copy was
+  made from, and warns when the installed keyd ships a different one.
 - **The mapper** runs as `keyd-application-mapper.service`, a user unit. It
   waits up to a minute for the extension's FIFO, runs in the foreground so
   systemd can restart it, and logs to the journal.

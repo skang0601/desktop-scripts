@@ -36,11 +36,12 @@ terminals still get Ctrl verbatim, but Cmd+C/V do nothing in them.
 | `keyd-restart.conf` | `/etc/systemd/system/keyd.service.d/restart.conf` |
 | `keyd-application-mapper.service` | `~/.config/systemd/user/`, linked |
 | `local-overrides.quirks` | `/etc/libinput/local-overrides.quirks` ([ADR 0003](../../docs/decisions/0003-touchpad-quirk-override.md)) |
-| keyd's GNOME extension | `~/.local/share/gnome-shell/extensions/keyd@keyd.rvaiya.github.com`, copied from the package |
+| `gnome-extension/` | `~/.local/share/gnome-shell/extensions/keyd@keyd.rvaiya.github.com` |
 
-The extension is copied rather than linked so the installer can widen its
-`shell-version` list through GNOME 60 and remove its own mapper spawn, which
-would race the systemd unit.
+`gnome-extension/` is keyd's own GNOME extension, adjusted: it declares GNOME
+45 through 60, leaves the mapper to the systemd unit, and reports the overview
+as a window class of its own. The header of its `extension.js` lists the
+changes, and the installer warns when the packaged original changes.
 
 ## keyd 2.6.0
 

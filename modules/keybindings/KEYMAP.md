@@ -48,7 +48,7 @@ Rule 4 overrides the others.
 | Cmd+Space | Spotlight | GNOME overview search | ✓ |
 | Ctrl+Cmd+Space | Emoji and symbols | Ctrl+. (GTK emoji chooser) | ✓ GTK apps only |
 | Ctrl+Cmd+F | Full screen | F11 | ✓ |
-| Space | Quick Look | -- | ✗ Nautilus needs `sushi` |
+| Space | Quick Look | Space (Nautilus, via Sushi) | ✓ |
 | Cmd+Tab | Switch apps | GNOME default | ✓ |
 | Cmd+\` | Switch the app's windows | GNOME default | ✓ |
 | Shift+Cmd+3 | Screenshot of the screen | Shift+Print | ✓ |

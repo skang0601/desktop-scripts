@@ -84,6 +84,11 @@ module_checks() {
     check_fail "keyd socket" "/run/keyd.socket is missing" "sudo systemctl restart keyd"
   fi
 
+  check_installed_matches "mapper extension" \
+    "$MODULE/gnome-extension/extension.js" \
+    "$HOME/.local/share/gnome-shell/extensions/keyd@keyd.rvaiya.github.com/extension.js" \
+    "./modules/keybindings/install.sh"
+
   check_installed_matches "mapper unit" \
     "$MODULE/keyd-application-mapper.service" \
     "$HOME/.config/systemd/user/keyd-application-mapper.service" \
