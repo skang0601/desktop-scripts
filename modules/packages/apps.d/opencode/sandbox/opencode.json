@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "ollama/qwen3.8:27b",
+  "model": "openai/gpt-6.1-terra",
   "share": "disabled",
   "update": "disable",
   "policies": [
@@ -12,6 +12,11 @@
     {
       "action": "provider.use",
       "resource": "ollama",
+      "effect": "allow"
+    },
+    {
+      "action": "provider.use",
+      "resource": "openai",
       "effect": "allow"
     }
   ],

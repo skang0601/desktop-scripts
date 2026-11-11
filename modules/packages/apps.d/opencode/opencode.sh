@@ -11,8 +11,12 @@ APP_GROUP="local llm"
 QUADLET_SRC() { printf '%s/opencode.container\n' "$APP_DIR"; }
 QUADLET="$HOME/.config/containers/systemd/opencode.container"
 CONFIG_SRC() { printf '%s/sandbox/opencode.json\n' "$APP_DIR"; }
+# The delegation rules are the desktop's: the same orchestrator and the same
+# local subagents, so the same advice on when to hand work to which.
+AGENTS_SRC() { printf '%s/../opencode-desktop/AGENTS.md\n' "$APP_DIR"; }
 CONFIG_DIR="$HOME/.local/share/opencode-sandbox-config"
 DATA="$HOME/.local/share/opencode-sandbox"
+UPLOADS="$HOME/.local/share/opencode-sandbox-uploads"
 WORKSPACE="$HOME/Workspace/phone"
 ENVFILE="$HOME/.config/opencode-server/env"
 PORT=4096
@@ -32,12 +36,16 @@ unit_active() { [[ "$(systemctl --user is-active opencode.service 2>/dev/null)" 
 # /api: the web app's static shell at / is served to anyone and holds no data,
 # while every API route requires the password.
 auth_enforced() {
-  [[ "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/session" 2>/dev/null)" == 401 ]]
+  # Retried because a just-restarted container takes a few seconds to listen.
+  [[ "$(curl -s -o /dev/null -w '%{http_code}' --retry 15 --retry-all-errors --retry-delay 1 \
+        "http://127.0.0.1:$PORT/api/session" 2>/dev/null)" == 401 ]]
 }
 
 # Copied rather than linked: a symlink into the repo would have to be resolved
 # inside the container, which cannot see the repo.
-config_current() { cmp -s "$(CONFIG_SRC)" "$CONFIG_DIR/opencode.json"; }
+config_current() {
+  cmp -s "$(CONFIG_SRC)" "$CONFIG_DIR/opencode.json" && cmp -s "$(AGENTS_SRC)" "$CONFIG_DIR/AGENTS.md"
+}
 
 app_check() {
   [[ "$(readlink -f "$QUADLET" 2>/dev/null)" == "$(readlink -f "$(QUADLET_SRC)")" ]] \
@@ -64,8 +72,9 @@ app_install() {
   require_app ollama
   require_app opencode-desktop
 
-  run mkdir -p "$WORKSPACE" "$DATA" "$CONFIG_DIR"
+  run mkdir -p "$WORKSPACE" "$DATA" "$UPLOADS" "$CONFIG_DIR"
   run install -m 644 "$(CONFIG_SRC)" "$CONFIG_DIR/opencode.json"
+  run install -m 644 "$(AGENTS_SRC)" "$CONFIG_DIR/AGENTS.md"
   write_envfile
   link_config "$(QUADLET_SRC)" "$QUADLET"
 
@@ -79,6 +88,10 @@ app_install() {
   run systemctl --user restart opencode.service
 
   dry || say "workspace: $WORKSPACE; password: $ENVFILE (user: opencode)"
+  # The OpenAI login is made from inside the sandbox, from the phone's browser,
+  # so the credential lives only in $DATA and is never copied in from the
+  # desktop app's store.
+  dry || say "connect OpenAI once in the web app (Settings > Providers); it is kept in $DATA"
 }
 
 app_checks() {
@@ -87,9 +100,9 @@ app_checks() {
   check_symlink "opencode quadlet" "$QUADLET" "$(QUADLET_SRC)" "./modules/packages/install.sh opencode"
 
   if config_current; then
-    check_ok "opencode sandbox config" "local models only"
+    check_ok "opencode sandbox config" "openai orchestrator, ollama subagents; other providers denied"
   else
-    check_fail "opencode sandbox config" "$CONFIG_DIR/opencode.json differs from the repo" \
+    check_fail "opencode sandbox config" "$CONFIG_DIR differs from the repo" \
       "./modules/packages/install.sh opencode"
   fi
 

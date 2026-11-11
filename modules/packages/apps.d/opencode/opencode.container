@@ -14,9 +14,10 @@ Exec=serve --hostname 0.0.0.0 --port 4096
 Volume=%h/Workspace/phone:/workspace:Z
 WorkingDir=/workspace
 
-# Its own config (installed read-only by the installer, local models only) and
-# its own sessions, cache and npm packages -- nothing shared with the desktop
-# app's ~/.local/share/opencode.
+# Its own config (installed read-only by the installer: an OpenAI orchestrator
+# with local subagents, every other provider denied) and its own sessions,
+# OpenAI login, cache and npm packages -- nothing shared with the desktop app's
+# ~/.local/share/opencode.
 Volume=%h/.local/share/opencode-sandbox:/data:Z
 Volume=%h/.local/share/opencode-sandbox-config:/data/.config/opencode:ro,Z
 Environment=HOME=/data
@@ -34,7 +35,14 @@ UserNS=keep-id
 DropCapability=ALL
 NoNewPrivileges=true
 ReadOnly=true
-Tmpfs=/tmp
+# notmpcopyup: podman otherwise seeds the tmpfs from the image's /tmp, which
+# ships /tmp/opencode owned by root, and under keep-id the server cannot create
+# its upload staging directory inside it -- every upload fails with a 500.
+Tmpfs=/tmp:rw,notmpcopyup,mode=1777
+# Uploads from the browser are kept under /tmp/opencode/uploads/<id>/, and the
+# session refers to them by that path, so a tmpfs there would lose every
+# attachment on restart while the chats still point at them.
+Volume=%h/.local/share/opencode-sandbox-uploads:/tmp/opencode:Z
 
 # Its own network namespace. pasta forwards the namespace's 127.0.0.1:11434 to
 # the host's, so ollama is the one host service it reaches; every other port
