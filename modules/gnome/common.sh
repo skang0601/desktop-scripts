@@ -10,6 +10,14 @@ ASD_HELPER="$ASD_EXT/studio-display-helper"
 # The project's install.sh copies over the extension directory without
 # clearing it, so the stamp survives a rebuild until this module rewrites it.
 ASD_STAMP="$ASD_EXT/.source-commit"
+# The display's brightness is a HID feature report, and its hidraw nodes are
+# root-only without this uaccess rule. It must sort before systemd's
+# 73-seat-late.rules, which is where uaccess tags become ACLs; a tag added
+# later shows in `udevadm info` and grants nothing.
+ASD_RULE_SRC="$ASD_SRC/99-apple-studio-display.rules"
+ASD_RULE_DEST=/etc/udev/rules.d/70-apple-studio-display.rules
+# Where the project's own `install.sh --udev` puts it, which is too late.
+ASD_RULE_STALE=/etc/udev/rules.d/99-apple-studio-display.rules
 
 asd_head()  { git -C "$ASD_SRC" rev-parse HEAD 2>/dev/null || true; }
 asd_built() { cat "$ASD_STAMP" 2>/dev/null || true; }

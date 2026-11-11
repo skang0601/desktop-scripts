@@ -71,6 +71,14 @@ brightness_checks() {
     check_fail "GNOME extension" "not enabled" "$fix"
   fi
 
+  if [[ -e "$ASD_RULE_STALE" ]]; then
+    check_fail "udev rule" "$ASD_RULE_STALE runs after 73-seat-late and grants no access" "$fix"
+  elif cmp -s "$ASD_RULE_SRC" "$ASD_RULE_DEST"; then
+    check_ok "udev rule" "$ASD_RULE_DEST"
+  else
+    check_fail "udev rule" "$ASD_RULE_DEST missing or differs from the checkout" "$fix"
+  fi
+
   [[ -x "$ASD_HELPER" ]] || return 0
   local out
   out="$("$ASD_HELPER" get 2>&1)" || true
@@ -81,8 +89,7 @@ brightness_checks() {
     check_warn "display" "no Studio Display connected"
   else
     # Usually hidraw permissions: the display's nodes need uaccess.
-    check_fail "display" "${out:-helper produced no output}" \
-      "$ASD_SRC/install.sh --udev"
+    check_fail "display" "${out:-helper produced no output}" "$fix"
   fi
 }
 

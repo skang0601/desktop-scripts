@@ -56,6 +56,19 @@ install_brightness() {
     fi
   fi
 
+  if cmp -s "$ASD_RULE_SRC" "$ASD_RULE_DEST" && [[ ! -e "$ASD_RULE_STALE" ]]; then
+    skip "udev rule" "$ASD_RULE_DEST matches the checkout"
+  else
+    say "installing $ASD_RULE_DEST"
+    run sudo install -m644 "$ASD_RULE_SRC" "$ASD_RULE_DEST"
+    run sudo restorecon "$ASD_RULE_DEST"
+    [[ -e "$ASD_RULE_STALE" ]] && run sudo rm -f "$ASD_RULE_STALE"
+    run sudo udevadm control --reload
+    # Re-applies the rule to the display's existing nodes, so access does not
+    # wait for a replug or reboot.
+    run sudo udevadm trigger --subsystem-match=hidraw
+  fi
+
   local enabled new
   enabled="$(gsettings get org.gnome.shell enabled-extensions)"
   if [[ "$enabled" == *"'$ASD_UUID'"* ]]; then

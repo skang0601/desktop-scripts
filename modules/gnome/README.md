@@ -36,8 +36,9 @@ Gotchas:
   `org.gnome.shell enabled-extensions` directly.
 - **The display has no kernel backlight.** Brightness is a USB HID feature
   report, so the helper needs read/write access to the display's `hidraw` nodes.
-  `doctor.sh` reports a failure if it cannot reach them; the project's
-  `install.sh --udev` installs a `uaccess` rule for them.
+  The installer copies the project's `uaccess` rule to
+  `/etc/udev/rules.d` and re-triggers the existing nodes, and `doctor.sh`
+  checks both the rule and that the helper can reach the display.
 - **GNOME's brightness keys are rebound while the extension is enabled.** GNOME
   50 binds `XF86MonBrightnessUp/Down` in the Shell itself, where they drive only
   built-in backlights. The extension empties `org.gnome.shell.keybindings
