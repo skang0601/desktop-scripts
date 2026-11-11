@@ -4,7 +4,7 @@
 # The port is read from the quadlet, the one place the OpenCode server's host
 # address is set: the host side of PublishPort=127.0.0.1:<host>:<container>.
 OPENCODE_PORT="$(awk -F: '/^PublishPort=/ { print $2; exit }' \
-  "$MODULE/../packages/apps.d/opencode/opencode.container")"
+  "$MODULE/../llm/opencode/opencode.container")"
 OPENCODE_TARGET="http://127.0.0.1:$OPENCODE_PORT"
 
 ts_status_field() {

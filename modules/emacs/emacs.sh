@@ -25,6 +25,20 @@ emacs_gui() {
   emacs -Q --batch --eval '(kill-emacs (if (fboundp (quote x-create-frame)) 0 1))' 2>/dev/null
 }
 
+# Distro package, for anything brew builds wrong for this desktop: brew's Linux
+# bottles are headless, so a package that has to draw a window comes from the
+# distro even though on atomic systems that means layering and a reboot.
+install_rpm() {
+  local pkg="$1"
+
+  if is_atomic; then
+    warn "layering $pkg (needs a reboot before it is usable)"
+    run sudo rpm-ostree install "$pkg"
+  else
+    run sudo dnf install -y "$pkg"
+  fi
+}
+
 # The config link is compared by target, not by existence: -L alone is true of a
 # link left dangling by a moved or renamed source, which is exactly the state
 # that needs relinking.
@@ -84,13 +98,13 @@ app_install() {
 # Follows whichever layout the machine actually has, not the modern one.
 app_checks() {
   if ! doom_installed; then
-    check_warn "doom" "not installed" "./modules/packages/install.sh emacs"
+    check_warn "doom" "not installed" "./modules/emacs/install.sh"
     return 0
   fi
   check_ok "doom" "$(doom_home)"
 
   check_symlink "doom config" "$(doomdir)" "$APP_DIR/doom" \
-    "./modules/packages/install.sh emacs"
+    "./modules/emacs/install.sh"
 
   # brew's Linux bottle is built --without-x and takes precedence on PATH once
   # `brew shellenv` has run, so a working GUI build can be shadowed by one that
@@ -99,6 +113,6 @@ app_checks() {
     check_ok "emacs GUI build" "$(command -v emacs)"
   else
     check_fail "emacs GUI build" "$(command -v emacs || echo emacs) cannot open a frame" \
-      "./modules/packages/install.sh emacs"
+      "./modules/emacs/install.sh"
   fi
 }

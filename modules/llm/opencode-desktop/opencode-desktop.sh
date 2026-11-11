@@ -1,10 +1,7 @@
 # shellcheck shell=bash
 APP_NAME=opencode-desktop
 
-# Reported with the rest of the local-LLM stack it is a client of.
-APP_GROUP="local llm"
-
-# The app is the opencode-desktop cask in ../../Brewfile.
+# The app is the opencode-desktop cask in ../../packages/Brewfile.
 CASK=opencode-desktop
 
 # The desktop app runs the same opencode server as the CLI, and both read the
@@ -54,8 +51,6 @@ config_names_ollama_model() {
 app_check() { configs_linked && coder_current; }
 
 app_install() {
-  require_app ollama
-
   cask_installed || warn "the $CASK cask is not installed; it comes from the Brewfile"
 
   local f
@@ -80,14 +75,14 @@ app_checks() {
     check_ok "opencode config" "linked to the repo"
   else
     check_fail "opencode config" "$CONFIG_DIR is not linked to the repo" \
-      "./modules/packages/install.sh opencode-desktop"
+      "./modules/llm/install.sh"
   fi
 
   if coder_current; then
     check_ok "$CODER_ALIAS" "coder agent model"
   else
     check_fail "$CODER_ALIAS" "missing, or its num_ctx differs from the repo's Modelfile" \
-      "./modules/packages/install.sh opencode-desktop"
+      "./modules/llm/install.sh"
   fi
 
   if config_names_ollama_model; then

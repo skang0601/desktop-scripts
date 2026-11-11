@@ -18,7 +18,7 @@ specifically.
 ## Dependencies
 
 They come from the modules enabled in `doom/init.el`, and `doom doctor` is what
-says which. They are listed in the packages [Brewfile](../../Brewfile) under
+says which. They are listed in the packages [Brewfile](../packages/Brewfile) under
 "What Doom's modules shell out to", which is where a new one goes.
 
 Language servers are listed with their languages in the same file (`gopls` with
@@ -36,7 +36,7 @@ Three warnings from `doom doctor` are left standing on purpose:
   serve languages that are not on.
 - **gore**, the Go REPL behind `:lang go`. Not in brew, so it would be a
   `go install` of an unmaintained tool landing outside anything that tracks it;
-  `gopls`, `gomodifytags` and `gotests` are all in the [Brewfile](../../Brewfile).
+  `gopls`, `gomodifytags` and `gotests` are all in the [Brewfile](../packages/Brewfile).
 - **maim / scrot / gnome-screenshot**, for `org-download-clipboard`. The first
   two are X11-only and this is a Wayland session; GNOME dropped
   `gnome-screenshot` for the Shell's own UI. `org-download` has no Wayland
@@ -47,7 +47,7 @@ Three warnings from `doom doctor` are left standing on purpose:
 `:tools llm` is enabled, which brings in [gptel](https://github.com/karthink/gptel)
 (plus `gptel-magit` and `ob-gptel`, since `:tools magit` and `:lang org` are on).
 Doom's module defaults to ChatGPT and wants an API key; `config.el` points it at
-the [ollama](../ollama) this module's sibling installs instead, so nothing leaves
+the [ollama](../llm/ollama) this module's sibling installs instead, so nothing leaves
 the machine and no key is involved. It is set as `gptel-backend` rather than
 offered alongside a cloud default.
 
@@ -88,7 +88,7 @@ gptel is given two tools:
 
 | tool | confirms? | |
 | --- | --- | --- |
-| `web_search` | no | queries the local [searxng](../searxng) |
+| `web_search` | no | queries the local [searxng](../llm/searxng) |
 | `read_file` | no | |
 | `list_directory` | no | |
 | `run_command` | **yes** | shell on this host |

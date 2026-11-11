@@ -1,10 +1,6 @@
 # shellcheck shell=bash
 APP_NAME=searxng
 
-# Reported together in doctor's grouped output: one local-LLM stack rather than
-# three apps scattered through an alphabetical list.
-APP_GROUP="local llm"
-
 QUADLET_SRC() { printf '%s/searxng.container\n' "$APP_DIR"; }
 SETTINGS_SRC() { printf '%s/settings.yml\n' "$APP_DIR"; }
 
@@ -108,14 +104,14 @@ app_checks() {
     check_ok "searxng quadlet" "linked to the repo"
   else
     check_fail "searxng quadlet" "$QUADLET is not linked to the repo" \
-      "./modules/packages/install.sh searxng"
+      "./modules/llm/install.sh"
   fi
 
   if cmp -s "$(SETTINGS_SRC)" "$SETTINGS"; then
     check_ok "searxng settings" "matches the repo"
   else
     check_fail "searxng settings" "$SETTINGS differs from the repo" \
-      "./modules/packages/install.sh searxng"
+      "./modules/llm/install.sh"
   fi
 
   if unit_active; then
@@ -130,11 +126,11 @@ app_checks() {
     check_warn "searxng" "nothing listening on 8888"
   elif ! listening_on_loopback; then
     check_fail "searxng" "listening on $listen, not loopback" \
-      "./modules/packages/install.sh searxng"
+      "./modules/llm/install.sh"
   elif curl -fsS "$API/search?q=test&format=json" >/dev/null 2>&1; then
     check_ok "searxng json api" "$API"
   else
     check_fail "searxng json api" "403 or no answer; formats: json missing" \
-      "./modules/packages/install.sh searxng"
+      "./modules/llm/install.sh"
   fi
 }

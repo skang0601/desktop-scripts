@@ -1,8 +1,6 @@
 # shellcheck shell=bash
 APP_NAME=opencode
 
-APP_GROUP="local llm"
-
 # A standing OpenCode server for the phone, reached over the tailnet. The
 # desktop app's own server is no use for that -- it listens on a random port,
 # and only while the app is open -- and it runs with everything this user can
@@ -67,11 +65,6 @@ write_envfile() {
 }
 
 app_install() {
-  # The models the sandbox config names: qwen3.8 from ollama's tier table, the
-  # Devstral alias from opencode-desktop.
-  require_app ollama
-  require_app opencode-desktop
-
   run mkdir -p "$WORKSPACE" "$DATA" "$UPLOADS" "$CONFIG_DIR"
   install_file "$(CONFIG_SRC)" "$CONFIG_DIR/opencode.json"
   install_file "$(AGENTS_SRC)" "$CONFIG_DIR/AGENTS.md"
@@ -97,13 +90,13 @@ app_install() {
 app_checks() {
   have podman || return 0
 
-  check_symlink "opencode quadlet" "$QUADLET" "$(QUADLET_SRC)" "./modules/packages/install.sh opencode"
+  check_symlink "opencode quadlet" "$QUADLET" "$(QUADLET_SRC)" "./modules/llm/install.sh"
 
   if config_current; then
     check_ok "opencode sandbox config" "openai orchestrator, ollama subagents; other providers denied"
   else
     check_fail "opencode sandbox config" "$CONFIG_DIR differs from the repo" \
-      "./modules/packages/install.sh opencode"
+      "./modules/llm/install.sh"
   fi
 
   if unit_active; then
@@ -117,6 +110,6 @@ app_checks() {
     check_ok "opencode auth" "unauthenticated requests refused"
   else
     check_fail "opencode auth" "127.0.0.1:$PORT answers without a password" \
-      "./modules/packages/install.sh opencode"
+      "./modules/llm/install.sh"
   fi
 }

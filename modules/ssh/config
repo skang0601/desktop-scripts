@@ -2,10 +2,8 @@
 #
 # Two ways to hold a key, in preference order. 1Password's SSH agent is the
 # intended one: the key never touches the disk. It is a feature of the desktop
-# app, not the `op` CLI, so the app must be installed and unlocked -- and it
-# currently cannot be installed on ostree systems at all (see
-# modules/packages/apps.d/1password.sh). An on-disk key is the fallback for
-# machines in that state.
+# app, not the `op` CLI, so the app must be installed, running and unlocked
+# (1password.sh). An on-disk key is the fallback for when it is not.
 
 # ssh_config is first-obtained-wins, so this has to precede `Host *` for the
 # agent to beat the on-disk key.

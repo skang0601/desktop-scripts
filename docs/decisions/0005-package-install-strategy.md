@@ -54,14 +54,14 @@ re-running it after adding an entry only installs the new one.
 The keybindings module is the standing exception: keyd needs root-level evdev
 access, so it layers. That is the case layering exists for.
 
-Containers are declared by apps in `modules/packages/apps.d/`, and two exist:
+Containers are declared by the boxes and llm modules, and two distroboxes exist:
 
 | Box | Image | For |
 | --- | --- | --- |
 | `ubuntu` | `quay.io/toolbx/ubuntu-toolbox:24.04` | claude-desktop, shipped only as `.deb` |
 | `dev` | `registry.fedoraproject.org/fedora-toolbox:<host release>` | `-devel` packages for building |
 
-`DEB_BOX` and `distrobox_ensure` live in `modules/packages/lib.sh` so several
+`DEB_BOX` and `distrobox_ensure` live in `modules/boxes/lib.sh` so several
 apps share one box rather than each pulling an image of its own.
 
 ## Containers come in two shapes

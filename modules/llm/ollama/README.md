@@ -13,7 +13,7 @@ CUDA runners, so that is what this app installs -- ADR 0005 rank 5, a vendor
 build confined to `$HOME`.
 
 It unpacks to `~/.local/share/ollama` with the binary symlinked into
-`~/.local/bin`, which [shell](../../../shell) already puts on `PATH`. Nothing is
+`~/.local/bin`, which [shell](../../shell) already puts on `PATH`. Nothing is
 written outside `$HOME` and no `sudo` is involved. `ollama` resolves its runners
 through `/proc/self/exe`, which follows the symlink, so `lib/ollama` is found
 relative to the unpacked prefix rather than to `~/.local/bin`.
@@ -155,9 +155,9 @@ checks them against this file. `ollama pull qwen3.5` lands as `qwen3.5:latest`, 
 normalises a bare tag before comparing against what `ollama list` reports.
 
 ```sh
-OLLAMA_MODEL=qwen2.5-coder:14b ./modules/packages/install.sh ollama
-OLLAMA_GPU_UUID=GPU-... ./modules/packages/install.sh ollama
-OLLAMA_VERSION=0.33.0 ./modules/packages/install.sh ollama
+OLLAMA_MODEL=qwen2.5-coder:14b ./modules/llm/install.sh
+OLLAMA_GPU_UUID=GPU-... ./modules/llm/install.sh
+OLLAMA_VERSION=0.33.0 ./modules/llm/install.sh
 ```
 
 It runs as its own `systemctl --user` unit rather than through `brew services`

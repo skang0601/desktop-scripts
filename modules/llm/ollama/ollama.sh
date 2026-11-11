@@ -1,10 +1,6 @@
 # shellcheck shell=bash
 APP_NAME=ollama
 
-# Reported together in doctor's grouped output: one local-LLM stack rather than
-# three apps scattered through an alphabetical list.
-APP_GROUP="local llm"
-
 # The vendor tarball, not brew: brew's Linux bottle ships no CUDA runner, so it
 # would run inference on the CPU with nothing in the output to say so. See
 # README.md.
@@ -396,7 +392,7 @@ write_roles() {
 app_checks() {
   if vendor_installed; then
     check_fail "ollama" "the vendor install script's system-wide install is still present" \
-      "./modules/packages/install.sh ollama"
+      "./modules/llm/install.sh"
   fi
 
   if ! resolve_target; then
@@ -413,7 +409,7 @@ app_checks() {
     check_ok "ollama" "$version at $PREFIX"
   else
     check_warn "ollama" "$version installed, $VERSION expected" \
-      "./modules/packages/install.sh ollama"
+      "./modules/llm/install.sh"
   fi
 
   if [[ "$(systemctl --user is-active ollama.service 2>/dev/null)" == active ]]; then
@@ -426,7 +422,7 @@ app_checks() {
     check_ok "gpu pin" "${GPU_VRAM}MiB on $GPU_UUID"
   else
     check_fail "gpu pin" "$UNIT does not pin $GPU_UUID" \
-      "./modules/packages/install.sh ollama"
+      "./modules/llm/install.sh"
   fi
 
   # Without this the pin still reads as correct while inference runs on the
@@ -435,7 +431,7 @@ app_checks() {
     check_ok "vulkan backend" "disabled, so the pin is the only device source"
   else
     check_fail "vulkan backend" "$UNIT does not set OLLAMA_VULKAN=0" \
-      "./modules/packages/install.sh ollama"
+      "./modules/llm/install.sh"
   fi
 
   # Without this the model still loads, but with layers on the CPU at half the
@@ -447,14 +443,14 @@ app_checks() {
     esac
   else
     check_fail "placement" "$UNIT does not place layers as $PLACEMENT" \
-      "./modules/packages/install.sh ollama"
+      "./modules/llm/install.sh"
   fi
 
   if grep -q "OLLAMA_CONTEXT_LENGTH=$CONTEXT" "$UNIT" 2>/dev/null; then
     check_ok "context" "$CONTEXT tokens, q8_0 KV cache"
   else
     check_fail "context" "$UNIT does not set OLLAMA_CONTEXT_LENGTH=$CONTEXT" \
-      "./modules/packages/install.sh ollama"
+      "./modules/llm/install.sh"
   fi
 
   if model_pulled; then
@@ -469,6 +465,6 @@ app_checks() {
     check_ok "model roles" "$ROLES"
   else
     check_fail "model roles" "$ROLES missing or stale" \
-      "./modules/packages/install.sh ollama"
+      "./modules/llm/install.sh"
   fi
 }

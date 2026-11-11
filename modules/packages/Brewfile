@@ -1,9 +1,9 @@
 # Every package this repo installs that Homebrew can install, read by
 # `brew bundle` (install.sh, checks.sh). Setup a package manager cannot do --
-# config links, toolchains, containers -- lives in apps.d/.
+# config links, toolchains, containers -- lives in modules of its own.
 #
-# Add a package here, not as an apps.d entry: `brew bundle add --file=Brewfile
-# <name>`, or the bbrew TUI that Bazzite ships.
+# Add a package here: by hand, `brew bundle add --file=Brewfile <name>`, or
+# the bbrew TUI that Bazzite ships.
 
 # ublue-os repackage vendors' own Linux builds as casks. Trusting the tap lets
 # brew run its casks' Ruby, and the 1Password casks use sudo: a polkit policy in
@@ -31,7 +31,7 @@ brew "tofu-ls"
 # modules/fonts keeps its .otf files in LFS
 brew "git-lfs"
 
-# What Doom's modules shell out to (apps.d/emacs)
+# What Doom's modules shell out to (modules/emacs)
 brew "ripgrep"
 brew "fd"
 brew "shellcheck"

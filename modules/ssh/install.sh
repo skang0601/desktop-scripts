@@ -27,6 +27,10 @@ if [[ "$(stat -Lc %a "$HOME/.ssh/config")" != 644 ]]; then
   run chmod 644 "$MODULE/config"
 fi
 
+# The app and op are Brewfile casks; this repairs the autostart entry that keeps
+# the agent running across logins (1password.md).
+install_part "$MODULE/1password.sh"
+
 # The agent socket is created by the 1Password desktop app when it is running
 # and SSH agent support is enabled in its settings. It is not part of `op`.
 AGENT_SOCK="$HOME/.1password/agent.sock"
@@ -48,3 +52,5 @@ else
   warn "no agent socket at $AGENT_SOCK, and no key at $FALLBACK_KEY"
   warn "enable it in 1Password: Settings > Developer > Use the SSH agent"
 fi
+
+parts_ok

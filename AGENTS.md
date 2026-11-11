@@ -14,7 +14,6 @@ Scope to the module you changed; the full run is slower and no more informative.
 ./doctor.sh <name>                      # actual state; nonzero if a check failed
 shellcheck -s bash <file>
 
-./modules/packages/install.sh <app>     # one app, not the whole module
 ./doctor.sh                             # everything this host enables
 ```
 
@@ -37,11 +36,11 @@ catches an `app_check` that does not detect what its own `app_install` just did.
 
 - A new module: `modules/<name>/install.sh`, plus a line in `hosts/*.modules`.
   Nothing else registers it.
-- A new package: a line in `modules/packages/Brewfile`. Setup a package
-  manager cannot do: one file in `modules/packages/apps.d/` defining
-  `APP_NAME`, `app_check`, `app_install`. Read that module's README first.
+- A new package: a line in `modules/packages/Brewfile`. Setup around it: a
+  module, or a part in one (`install_part` in `lib/common.sh`) when a module
+  sets up several things.
 - A shared helper: `lib/common.sh` for anything a module needs,
-  `modules/packages/lib.sh` for install strategies.
+  `modules/packages/lib.sh` for brew.
 - A PATH entry: `modules/shell/bashrc.d/10-path.sh`, even when the thing on it
   is installed by another module -- entries constrain each other's order.
 - Anything answering "why is it like this", where the answer outlives the code:

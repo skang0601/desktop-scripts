@@ -12,4 +12,7 @@ shell
 git
 ssh
 gnome
+emacs
+llm
+boxes
 tailscale

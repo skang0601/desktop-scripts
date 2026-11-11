@@ -112,3 +112,35 @@ check_dconf() {
     check_fail "$label" "is $got, expected $want" "$fix"
   fi
 }
+
+# doctor rows for one part (see install_part in common.sh): installed or not,
+# blocked when app_blocked says so, then the part's own app_checks, nested under
+# its APP_NAME. stdin is closed because a check that shells out to podman or
+# distrobox would otherwise read the caller's input.
+check_part() {
+  local f="$1" rc
+  set +e
+  (
+    set -e
+    APP_DIR="$(dirname "$f")"
+    # shellcheck source=/dev/null
+    source "$f"
+    CHECK_GROUP="$APP_NAME"
+    local reason
+    if app_check >/dev/null 2>&1; then
+      check_ok "$APP_NAME" "installed"
+    elif declare -F app_blocked >/dev/null && reason="$(app_blocked)"; then
+      # The second line, when there is one, is where to watch for the block lifting.
+      check_blocked "$APP_NAME" "${reason%%$'\n'*}" \
+        "$([[ "$reason" == *$'\n'* ]] && printf '%s' "${reason#*$'\n'}")"
+      exit 0
+    else
+      check_warn "$APP_NAME" "not set up" "./modules/$CHECK_MODULE/install.sh"
+    fi
+    if declare -F app_checks >/dev/null; then app_checks; fi
+  ) </dev/null
+  rc=$?
+  set -e
+  (( rc == 0 )) || check_warn "$(basename "$f" .sh) checks" "exited early ($rc)"
+  return 0
+}

@@ -1,12 +1,12 @@
 # 1password
 
 The desktop app plus the `op` CLI. The SSH agent socket at
-`~/.1password/agent.sock` is the point: the [ssh](../../../ssh) module depends on
+`~/.1password/agent.sock` is the point: the [ssh](README.md) module depends on
 it for every git-over-ssh operation.
 
 ## Why a brew cask
 
-The app and `op` are `ublue-os/tap` casks in the [Brewfile](../../Brewfile),
+The app and `op` are `ublue-os/tap` casks in the [Brewfile](../packages/Brewfile),
 which package 1Password's own Linux tarball and install it on the host. The
 agent socket, `op`, the polkit policy and browser integration then work as they
 do from the vendor's packages (ADR 0005). This entry only repairs autostart and
@@ -30,7 +30,7 @@ The tap's casks run `sudo` to install the polkit policy into
 `/etc/polkit-1/actions`, create the `onepassword` group, and set setuid/setgid
 bits, so the Brewfile trusts this tap by name rather than taps in general.
 `install.sh` runs `brew bundle` with `SUDO_ASKPASS` unset so that `sudo`
-prompts on the terminal; see `brew_bundle` in [lib.sh](../../lib.sh).
+prompts on the terminal; see `brew_bundle` in [lib.sh](../packages/lib.sh).
 
 ## Start at login
 

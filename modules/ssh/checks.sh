@@ -4,6 +4,8 @@
 # copy-pasteable hints, not paths this script resolves itself
 
 module_checks() {
+  check_part "$MODULE/1password.sh"
+
   # ssh refuses a config directory or key that others can write to, and says so
   # only at connection time.
   local mode

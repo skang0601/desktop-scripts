@@ -2,11 +2,10 @@
 APP_NAME=1password
 
 # The desktop app's value here is the SSH agent socket at ~/.1password/agent.sock,
-# which the ssh module points IdentityAgent at. Everything below follows from
-# needing that socket to appear on the host.
-AGENT_SOCK="$HOME/.1password/agent.sock"
+# which ./config points IdentityAgent at. Everything below follows from needing
+# that socket to appear on the host.
 
-# The app and op are the ublue-os casks in ../../Brewfile: 1Password's own Linux
+# The app and op are the ublue-os casks in ../packages/Brewfile: 1Password's own Linux
 # tarball, repackaged (ADR 0005). The two alternatives both fail on an atomic
 # system: the rpm's %post aborts under rpm-ostree, and the Flatpak has no
 # --filesystem=home, so its agent socket is created inside a redirected $HOME
@@ -93,7 +92,7 @@ app_checks() {
   if have 1password; then
     check_ok "1password app" "$(command -v 1password)"
   else
-    check_warn "1password app" "not installed" "./modules/packages/install.sh 1password"
+    check_warn "1password app" "not installed" "./modules/ssh/install.sh"
   fi
 
   # Checked separately from the socket because it is the cause the socket's
@@ -106,33 +105,23 @@ app_checks() {
   elif [[ -f "$AUTOSTART" ]]; then
     check_warn "1password autostart" \
       "$AUTOSTART points at a binary that is not there" \
-      "./modules/packages/install.sh 1password"
+      "./modules/ssh/install.sh"
   else
     check_warn "1password autostart" \
       "'Start at login' is on, but no autostart entry implements it" \
-      "./modules/packages/install.sh 1password"
-  fi
-
-  # The socket is the point of the whole entry, and it is absent whenever the
-  # app is closed or the SSH agent setting was never turned on -- neither of
-  # which the installer can do anything about.
-  if [[ -S "$AGENT_SOCK" ]]; then
-    check_ok "1password ssh agent" "$AGENT_SOCK"
-  else
-    check_warn "1password ssh agent" "no socket; app closed or agent not enabled" \
-      "open 1Password, then Settings -> Developer -> 'Use the SSH agent'"
+      "./modules/ssh/install.sh"
   fi
 
   local op_path
   op_path="$(command -v op || true)"
   if [[ -z "$op_path" ]]; then
-    check_warn "op cli" "not on PATH" "./modules/packages/install.sh 1password"
+    check_warn "op cli" "not on PATH" "./modules/ssh/install.sh"
   elif [[ "$op_path" == "$HOME/.local/bin/"* ]]; then
     # A distrobox-exported wrapper left over from running the app in a
     # container. op and the app have to be the same side of the container
     # boundary, so this cannot reach an app installed on the host.
     check_warn "op cli" "$op_path is a container wrapper; it cannot reach the host app" \
-      "rm $op_path && ./modules/packages/install.sh 1password"
+      "rm $op_path && ./modules/ssh/install.sh"
   else
     check_ok "op cli" "$op_path"
   fi
@@ -143,6 +132,6 @@ app_checks() {
     check_ok "op-ssh-sign" "$(command -v op-ssh-sign)"
   else
     check_warn "op-ssh-sign" "absent; git ssh commit signing would fail" \
-      "./modules/packages/install.sh 1password"
+      "./modules/ssh/install.sh"
   fi
 }

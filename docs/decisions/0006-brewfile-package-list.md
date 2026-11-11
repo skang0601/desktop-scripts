@@ -28,9 +28,11 @@ taps and Flatpaks -- is a line in `modules/packages/Brewfile`, applied with
   `brew bundle check --no-upgrade` reports something missing, so a re-run is a
   no-op. Upgrading is a separate, explicit `install.sh --upgrade`, which
   upgrades only what the Brewfile lists.
-- `apps.d/` keeps only what a package manager cannot do: linking config,
-  toolchain setup, quadlets, distroboxes, the CUDA build of ollama, emacs from
-  the distro, and the autostart repair 1Password needs.
+- What a package manager cannot do -- linking config, toolchain setup,
+  quadlets, distroboxes, the CUDA build of ollama, emacs from the distro, the
+  autostart repair 1Password needs -- lives in ordinary modules (emacs, llm,
+  boxes, ssh). `apps.d/` and its install framework are gone: a module with
+  several things to set up runs each as a part with `install_part`.
 - Homebrew is required. The dnf fallbacks, the 1Password rpm repo and the
   JetBrains tarball route are gone; without brew the module stops and says so.
 - A supporting tool sits beside the package it supports, under a comment saying

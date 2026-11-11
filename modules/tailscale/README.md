@@ -1,7 +1,7 @@
 # tailscale
 
 Joins this machine to the tailnet and serves the [OpenCode
-server](../packages/apps.d/opencode) on its tailnet address, so the phone can
+server](../llm/opencode) on its tailnet address, so the phone can
 work in projects on this desktop.
 
 Bazzite ships `tailscale` in the image, so there is nothing to install or

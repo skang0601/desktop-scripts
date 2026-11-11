@@ -76,7 +76,7 @@ app_checks() {
   have distrobox || { check_warn "$BOX box" "distrobox not available"; return 0; }
 
   if ! distrobox_exists "$BOX"; then
-    check_warn "$BOX box" "not created" "./modules/packages/install.sh dev-box"
+    check_warn "$BOX box" "not created" "./modules/boxes/install.sh"
     return 0
   fi
 
@@ -89,7 +89,7 @@ app_checks() {
     check_ok "$BOX image" "$got"
   else
     check_warn "$BOX image" "built from $got, host is $want" \
-      "distrobox rm $BOX --force && ./modules/packages/install.sh dev-box"
+      "distrobox rm $BOX --force && ./modules/boxes/install.sh"
   fi
 
   # What is inside can only be read from inside, so this starts the box and puts
@@ -101,7 +101,7 @@ app_checks() {
     check_ok "$BOX build deps" "libudev headers present"
   else
     check_warn "$BOX build deps" "libudev headers missing" \
-      "./modules/packages/install.sh dev-box"
+      "./modules/boxes/install.sh"
   fi
 
   # Without the Homebrew mount the box has no toolchain at all: rustup is on the
@@ -110,7 +110,7 @@ app_checks() {
     check_ok "$BOX toolchain" "cargo resolves"
   else
     check_warn "$BOX toolchain" "no cargo; the Homebrew mount is missing" \
-      "distrobox rm $BOX --force && ./modules/packages/install.sh dev-box"
+      "distrobox rm $BOX --force && ./modules/boxes/install.sh"
   fi
 
   box_stop_if "$was"

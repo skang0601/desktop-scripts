@@ -1,12 +1,12 @@
 # opencode
 
 A standing OpenCode server for the phone, served over the tailnet by the
-[tailscale](../../../tailscale) module. It runs `opencode serve` in a rootless
+[tailscale](../../tailscale) module. It runs `opencode serve` in a rootless
 podman container that can edit files in one directory and reach nothing else
 on the desktop.
 
 ```sh
-./modules/packages/install.sh opencode
+./modules/llm/install.sh
 ```
 
 The desktop app's own server is no substitute: it listens on a random port

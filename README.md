@@ -45,8 +45,9 @@ machine is about to have done to it.
 ```
 bootstrap.sh          runs each enabled module's install.sh
 doctor.sh             runs each module's checks.sh and reports actual state
-lib/common.sh         say/warn/run/dry, parse_module_args, install_file, link_config
-lib/checks.sh         check_ok / check_warn / check_fail / check_blocked
+lib/common.sh         say/warn/run/dry, parse_module_args, install_file,
+                      link_config, install_part
+lib/checks.sh         check_ok / check_warn / check_fail / check_blocked, check_part
 lib/hosts.sh          host profiles, for bootstrap.sh and doctor.sh
 hosts/*.modules       which modules a given machine enables
 modules/<name>/       install.sh + checks.sh + config + README
@@ -74,10 +75,13 @@ A module opts in by adding `checks.sh` defining `module_checks()`. As with
 | Module | What it does |
 | --- | --- |
 | [`keybindings`](modules/keybindings/) | macOS keys via keyd, specified in [KEYMAP.md](modules/keybindings/KEYMAP.md), plus the GNOME shortcuts that go with them |
-| [`packages`](modules/packages/) | every package in a `Brewfile` applied with `brew bundle`, plus setup in `apps.d/`: Doom Emacs, rustup's toolchain, 1Password's autostart, and the local LLM stack (ollama, OpenCode, SearXNG) |
+| [`packages`](modules/packages/) | every package, in a `Brewfile` applied with `brew bundle`; rustup's toolchain and Claude Code |
+| [`emacs`](modules/emacs/) | Fedora's GUI emacs, Doom, and its config |
+| [`llm`](modules/llm/) | the local LLM stack: ollama, SearXNG, OpenCode desktop and server |
+| [`boxes`](modules/boxes/) | distroboxes: a Fedora dev toolbox, and the Ubuntu box for claude-desktop |
 | [`shell`](modules/shell/) | bash PATH and editor defaults |
 | [`git`](modules/git/) | global git config |
-| [`ssh`](modules/ssh/) | ssh client config; keys come from the 1Password agent |
+| [`ssh`](modules/ssh/) | ssh client config; keys come from the 1Password agent, whose autostart it repairs |
 | [`gnome`](modules/gnome/) | Studio Display brightness via the [asd-brightness](https://github.com/skang0601/asd-brightness) extension, the login screen at the session's display scale, and no automatic suspend |
 | [`tailscale`](modules/tailscale/) | joins the tailnet and serves the OpenCode server on it, for the phone |
 

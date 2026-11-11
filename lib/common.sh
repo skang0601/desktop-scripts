@@ -42,6 +42,50 @@ run() {
   fi
 }
 
+# A part is one file setting up one thing, for a module with several: it defines
+# APP_NAME, app_check and app_install, and optionally app_checks (doctor rows)
+# and app_blocked (prints why it cannot be set up here, and succeeds if so).
+# Each is sourced in its own subshell with APP_DIR set to its directory, so
+# parts cannot see each other's definitions.
+#
+# A failing part is recorded in PARTS_FAILED and the next one still runs; the
+# module ends with `parts_ok`. errexit is turned back on inside the subshell
+# rather than tested with `||`, which would disable it for the whole part.
+PARTS_FAILED=()
+install_part() {
+  local f="$1" rc
+  set +e
+  (
+    set -e
+    APP_DIR="$(dirname "$f")"
+    # shellcheck source=/dev/null
+    source "$f"
+    if app_check; then
+      skip "$APP_NAME"
+      exit 0
+    fi
+    say "setting up $APP_NAME"
+    app_install
+  )
+  rc=$?
+  set -e
+  if (( rc != 0 )); then
+    warn "$(basename "$f" .sh) failed (exit $rc)"
+    PARTS_FAILED+=("$(basename "$f" .sh)")
+  fi
+  return 0
+}
+
+parts_ok() {
+  (( ${#PARTS_FAILED[@]} == 0 )) && return 0
+  warn "failed: ${PARTS_FAILED[*]}; re-run this module's install.sh to retry"
+  return 1
+}
+
+# Called by a part that cannot be set up on this machine for a known reason
+# re-running will not change. Not a failure: doctor.sh reports it as blocked.
+blocked() { warn "${*//$'\n'/$'\n'    }"; exit 0; }
+
 # Copy a repo file into place only when it differs, so a re-run is a no-op.
 #   install_file [--root] <src> <dest> [mode]
 # Sets FILE_CHANGED to 1 when it installed and 0 when dest already matched, for a
