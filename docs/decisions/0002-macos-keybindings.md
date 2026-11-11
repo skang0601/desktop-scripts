@@ -5,6 +5,9 @@
 - Supersedes: earlier split ADRs on tool choice, modifier layout, and the
   terminal exception; those were three views of one decision.
 
+The key-by-key behaviour this decision implements is specified in
+[`modules/keybindings/KEYMAP.md`](../../modules/keybindings/KEYMAP.md).
+
 ## Context
 
 macOS splits modifier duty: Cmd owns GUI actions (copy, paste, new tab, quit),
@@ -182,8 +185,16 @@ The division of labour is what makes this Wayland-legal: the extension only
 *reports focus* and never injects keys, while keyd does the emission in the
 kernel, where Wayland's restrictions don't apply.
 
-The bundled extension declares support through GNOME 49 and not 50. See
-`modules/keybindings/gnome-wayland-bridge.md` for the workaround.
+The bundled extension's `shell-version` list stops at the GNOME current when
+keyd was released, and the Shell skips an extension whose list omits the
+running version. The installer copies it into the user's extensions directory
+with the list widened through GNOME 60; see
+`modules/keybindings/gnome-wayland-bridge.md`.
+
+xremap was reconsidered in 2026-11 and rejected again on a requirement of its
+own: its key-combo output releases held modifiers around each translated key,
+so GNOME sees Super pressed and released alone and opens the overview on every
+Cmd+C. keyd's `layer()` holds Super back until a key needs it.
 
 ### Layer 4 - terminal config
 
@@ -204,13 +215,14 @@ clipboard is `Ctrl+Shift+C`/`V`, reached by pressing those keys physically.
 There is no Super spelling for it without Layer 3, and this design has no
 fallback that changes that.
 
-Where a terminal *can* be met halfway is its other accelerators. Ptyxis exposes
-them as gsettings, and the nav layer makes several bare-Ctrl spellings
-unreachable from the keyboard -- physical Ctrl+A, Ctrl+F and Ctrl+N become
-Home, Right and Down -- so binding `select-all`, `search` and `new-window` to
-them gives Super+A/F/N a meaning in the terminal that nothing else can trigger.
-That is Layer 2 doing Layer 3's job for the subset of apps that expose their
-own keymap, and it survives a GNOME upgrade in a way the extension does not.
+Meeting terminals halfway through their own accelerators was considered and
+rejected. Ptyxis exposes its shortcuts as gsettings, and binding `select-all`,
+`search` and `new-window` to bare Ctrl+A/F/N would give Super+A/F/N a meaning
+there without Layer 3. But Layer 3 hands Ctrl+A/E/B/F/P/N back to the shell in
+a terminal, and a bare-Ctrl accelerator then eats the key before readline or
+tmux sees it: Ctrl+A selects all instead of reaching the tmux prefix. Ptyxis
+keeps its stock Ctrl+Shift accelerators, and terminals depend on Layer 3 for
+the Cmd spellings.
 
 ## Consequences
 

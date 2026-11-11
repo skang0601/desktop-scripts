@@ -7,8 +7,9 @@ macOS-style modifier behaviour on GNOME/Wayland, via [keyd](https://github.com/r
 ./gsettings.sh      # GNOME shortcut collisions
 ```
 
-Full reasoning is in [ADR 0002](../../docs/decisions/0002-macos-keybindings.md);
-this is the operator's view.
+What every key does is specified in [KEYMAP.md](KEYMAP.md). Full reasoning
+is in [ADR 0002](../../docs/decisions/0002-macos-keybindings.md); this is the
+operator's view.
 
 ## What you get
 
@@ -161,8 +162,8 @@ fine; `install.sh` treats any warning as fatal for that reason.
 
 ```sh
 sudo keyd monitor                       # live view of what keyd sees and emits
-keyd check /etc/keyd/default.conf       # validate before reloading
-sudo keyd reload
+keyd check /etc/keyd/default.conf       # validate before restarting
+sudo systemctl restart keyd             # not `keyd reload`: 2.6.0 segfaults after one
 systemctl status keyd
 keyd-application-mapper -v              # prints focused window class as it changes
 ```
@@ -174,7 +175,5 @@ behaviour.
 ## Untested
 
 - Whether foot accepts `Ctrl+Insert`/`Shift+Insert`. Ptyxis does not.
-- Whether keyd's GNOME extension runs on GNOME 50 -- it declares support only
-  through 49.
 - Electron/Chromium apps handle accelerators idiosyncratically; VS Code,
   browsers and Slack are worth checking individually.
