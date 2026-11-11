@@ -69,8 +69,8 @@ app_install() {
   brew_tap_trusted "$UBLUE_TAP"
 
   # Prompts for sudo, for the polkit policy and setuid bits above.
-  have 1password || run brew install --cask "$GUI_CASK"
-  have op || run brew install --cask "$CLI_CASK"
+  have 1password || install_cask "$GUI_CASK"
+  have op || install_cask "$CLI_CASK"
 
   say "sign in, then enable Settings -> Developer -> 'Use the SSH agent'"
   say "and 'Integrate with 1Password CLI' for op"

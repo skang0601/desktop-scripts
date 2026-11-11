@@ -23,6 +23,13 @@ rpm-ostree's bwrap sandbox leaves unpopulated; the mkdir gets `EEXIST` on the
 dangling symlink and the scriptlet aborts, which rpm-ostree treats as fatal
 where dnf only warns.
 
+1Password fixed that in the 8.12 series: `%post` now links into `/usr/bin`,
+with a comment naming the rpm-ostree failure. The cask is still the route
+here, because the rpm would be a layered package (a reboot per change, and
+riding along on every image update), and its `%post` builds the polkit
+policy's owner list from `/etc/passwd` at layering time, which on an
+image-based system has not been shown to include the desktop user.
+
 That leaves a brew cask from `ublue-os/tap`, which packages 1Password's own
 Linux tarball and puts the app on the host, where the agent socket, `op`, the
 polkit policy and browser integration all work without special handling

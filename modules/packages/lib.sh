@@ -24,6 +24,16 @@ install_cli() {
   fi
 }
 
+# A cask whose install runs sudo (1Password's groupadd, for one). brew passes
+# `sudo -A` whenever SUDO_ASKPASS is set, which Fedora's profile.d always sets
+# to gnome-ssh-askpass, but brew's `env -i` allowlist keeps DISPLAY and drops
+# XAUTHORITY, so the askpass dialog is refused by Xwayland and sudo gets no
+# password. Without SUDO_ASKPASS brew calls plain sudo, which prompts on the
+# terminal.
+install_cask() {
+  run env -u SUDO_ASKPASS brew install --cask "$@"
+}
+
 # Distro package, skipping brew entirely. For anything brew builds wrong for
 # this desktop: brew's Linux bottles are headless, so a package that has to
 # draw a window comes from the distro even though on atomic systems that means

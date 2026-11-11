@@ -20,7 +20,7 @@ app_install() {
     # tarball leaves to Toolbox's first run.
     say "trusting $UBLUE_TAP; its casks repackage vendors' own Linux builds"
     brew_tap_trusted "$UBLUE_TAP"
-    run brew install --cask "$CASK"
+    install_cask "$CASK"
     return 0
   fi
 

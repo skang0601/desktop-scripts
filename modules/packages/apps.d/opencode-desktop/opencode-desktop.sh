@@ -61,7 +61,7 @@ app_check() { cask_installed && configs_linked && coder_current; }
 app_install() {
   require_app ollama
 
-  cask_installed || run brew install --cask "$CASK"
+  cask_installed || install_cask "$CASK"
 
   local f
   for f in "${CONFIG_FILES[@]}"; do
