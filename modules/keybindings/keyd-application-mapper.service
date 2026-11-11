@@ -1,0 +1,30 @@
+# systemd user unit -> ~/.config/systemd/user/keyd-application-mapper.service
+#
+# The per-application layer (app.conf). keyd's GNOME extension would otherwise
+# start the mapper itself, once, when it is enabled, and nothing restarts it if
+# it dies. The installer strips that spawn from its copy of the extension, so
+# this unit is the only thing that runs the mapper.
+
+[Unit]
+Description=keyd per-application remapping (app.conf)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+# The extension creates the FIFO when the Shell loads it, which can be after
+# this unit starts, and the mapper exits 0 at once if the FIFO is missing. The
+# wait is bounded so a Shell that never loads the extension shows up as a
+# failing unit rather than one stuck starting forever.
+ExecStartPre=/bin/sh -c 'for i in $(seq 60); do [ -p "$XDG_RUNTIME_DIR/keyd.fifo" ] && exit 0; sleep 1; done; echo "keyd GNOME extension is not running: no $XDG_RUNTIME_DIR/keyd.fifo" >&2; exit 1'
+# No -d: daemonizing forks away from systemd, which then sees the main process
+# exit and restarts it in a loop. In the foreground its output goes to the
+# journal instead of ~/.config/keyd/app.log.
+ExecStart=/usr/bin/keyd-application-mapper
+Restart=always
+RestartSec=5
+# A missing extension fails every start after a minute's wait; keep retrying,
+# since the next login that loads it should not need a manual restart.
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=graphical-session.target

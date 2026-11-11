@@ -1,109 +1,69 @@
-# The GNOME/Wayland focus bridge (Layer 3)
+# The per-app layer on GNOME/Wayland
 
-Everything here is optional. Layer 1 (`/etc/keyd/default.conf`) is a working
-setup on its own; this adds the per-application behaviour, chiefly making
-`Super+C` mean Ctrl+Shift+C inside a terminal. See
-[ADR 0002](../../docs/decisions/0002-macos-keybindings.md) for why it's built this way.
-
-## How it works
-
-On Wayland no client may ask which window has focus -- that's the keylogging
-surface Wayland was designed to close. Only the compositor knows.
+`app.conf` gives terminals and Emacs their own translations (see
+[KEYMAP.md](KEYMAP.md)). Applying them needs to know which window has focus,
+and on Wayland only the compositor knows that.
 
 ```
-GNOME Shell extension          keyd-application-mapper        keyd (root)
-  reads focus_window     ->      reads ~/.config/keyd/    ->    emits keys
-  .get_wm_class()                app.conf, calls              via uinput
-  writes $XDG_RUNTIME_DIR/       `keyd bind ...`              (kernel level)
-  keyd.fifo
+keyd's GNOME extension      keyd-application-mapper        keyd (root)
+  watches focus        ->     matches the window     ->     applies the
+  writes the window class     against app.conf and          bindings to the
+  to $XDG_RUNTIME_DIR/        runs `keyd bind ...`          keys it emits
+  keyd.fifo                   on /run/keyd.socket
 ```
 
-The extension only *reports focus*. It never injects keystrokes -- that would be
-blocked. keyd does the emission down in the kernel, where Wayland's restrictions
-don't apply. This split is the whole trick.
+The extension only reports focus and never injects keys. keyd emits them from
+below the display server, so Wayland's restrictions do not apply.
 
-## The extension is not third-party
+## Pieces
 
-It ships inside the keyd source tree at `data/gnome-extension-45/`, is installed
-by keyd's Makefile, and is **not** published on extensions.gnome.org. Don't go
-looking for it there.
+- **The extension** ships in the keyd package at
+  `/usr/share/keyd/gnome-extension-45/` (UUID `keyd@keyd.rvaiya.github.com`)
+  and is not on extensions.gnome.org. `install.sh` copies it to
+  `~/.local/share/gnome-shell/extensions/` with two changes:
+  - **`shell-version` set to 45 through 60.** The packaged list ends at the
+    GNOME release current when keyd shipped, and the Shell silently skips an
+    extension whose list omits the running version, so every GNOME upgrade
+    would disable it.
+  - **The mapper spawn and kill removed.** As shipped, the extension starts
+    `keyd-application-mapper -d` on enable and kills it on disable; the systemd
+    unit owns the mapper instead.
+- **The mapper** runs as `keyd-application-mapper.service`, a user unit. It
+  waits up to a minute for the extension's FIFO, runs in the foreground so
+  systemd can restart it, and logs to the journal.
+- **The `keyd` group** grants access to `/run/keyd.socket`. On nss-altfiles
+  systems (Bazzite, Silverblue) the group lives in `/usr/lib/group`, and
+  `usermod -aG` exits 0 without adding anyone until the record is copied into
+  `/etc/group`. `install.sh` does both. The membership takes effect at the next
+  login.
 
-- UUID (GNOME 45+): `keyd@keyd.rvaiya.github.com`
-- UUID (GNOME 42-44): `keyd`
+The extension's code uses `Shell.WindowTracker`, `global.display.focus_window`
+and the ESM `Extension` class. A new GNOME major can break it at load time;
+`journalctl -o cat /usr/bin/gnome-shell` shows the exception.
 
-Running `keyd-application-mapper` once on GNOME installs it for you. The
-extension then manages the daemon's lifecycle itself -- it spawns
-`keyd-application-mapper -d` on enable and kills it on disable, so no systemd
-user unit is needed.
-
-## Setup
+## Checking it
 
 ```sh
-# 1. keyd must be running, and you must be in the keyd group.
-#    On nss-altfiles systems (Bazzite, Silverblue) the keyd group lives in
-#    /usr/lib/group, and usermod only amends /etc/group -- it finds nothing to
-#    change there and exits 0 without adding you. Copy the record over first.
-grep -q '^keyd:' /etc/group || getent group keyd | sudo tee -a /etc/group
-sudo usermod -aG keyd "$USER"      # log out and back in for this to take effect
-getent group keyd | grep -qw "$USER" || echo "membership did not take"
-ls -l /var/run/keyd.socket         # must be group-readable by you
-
-# 2. install the config from this repo
-install -Dm644 keyd/app.conf ~/.config/keyd/app.conf
-
-# 3. install and enable the GNOME extension -- install.sh does this, with the
-#    version list widened (see below); then restart the session, since
-#    Wayland cannot reload the Shell
+gnome-extensions info keyd@keyd.rvaiya.github.com   # State: ACTIVE
+ls -l "$XDG_RUNTIME_DIR/keyd.fifo"                   # exists while the extension runs
+systemctl --user status keyd-application-mapper
+journalctl --user -u keyd-application-mapper -f
 ```
-
-Verify:
-
-```sh
-gnome-extensions info keyd@keyd.rvaiya.github.com
-ls "$XDG_RUNTIME_DIR/keyd.fifo"    # created by the extension when active
-keyd-application-mapper -v         # prints the focused window class as it changes
-tail -f ~/.config/keyd/app.log
-```
-
-## GNOME version compatibility
-
-**This is the fragile part.** keyd's extension `metadata.json` lists the GNOME
-versions current at its release -- 45 to 49 for keyd 2.6.0 -- and the Shell
-skips any extension whose list omits the running major version, marking it
-OUT OF DATE without an error anywhere visible.
-
-`install.sh` therefore copies the packaged extension into
-`~/.local/share/gnome-shell/extensions/` instead of keyd-application-mapper's
-symlink, writing `shell-version` as 45 through 60, and `doctor.sh` fails if the
-installed list omits the running Shell. Disabling version validation globally
-(`disable-extension-version-validation`) would also work, and is not used
-because it applies to every extension.
-
-Whether the extension's *code* still works is
-separate: it uses `Shell.WindowTracker.get_default()`,
-`global.display.focus_window`, `Main.layoutManager.connectObject` and the ESM
-`Extension` base class. None are known removed, but each new GNOME major is untested until it loads --
-check `journalctl -f -o cat /usr/bin/gnome-shell` for exceptions after enabling.
-
-If it doesn't work, nothing essential is lost. Terminals fall back to
-Ctrl+Shift+C, or to Ctrl+Insert/Shift+Insert if your terminal accepts them.
 
 ## Writing app.conf sections
 
-The window class is **normalised** before matching: non-alphanumerics collapse
-to `-`, then lowercased. So `org.gnome.Ptyxis` is written `[org-gnome-ptyxis]`.
-Don't guess -- run `keyd-application-mapper -v`, focus the window, and read the
-class it prints.
+Sections match the window class after normalising it: runs of
+non-alphanumerics become `-` and the result is lowercased, so
+`org.gnome.Ptyxis` is `[org-gnome-ptyxis]`. To find a window's class, stop the
+unit, run `keyd-application-mapper -v`, and focus the window.
 
-Each line uses the `keyd bind` grammar, `<layer>.<key> = <action>`:
+Each line is `<layer>.<key> = <action>`, the `keyd bind` grammar:
 
 ```
 [org-gnome-ptyxis]
-
 mac.c = C-S-c
 ```
 
-There is no directive to *disable* a layer for an app; you override the
-individual bindings. Apps with no matching section revert to
-`/etc/keyd/default.conf`. All matching sections apply cumulatively, later ones
-winning.
+There is no way to disable a whole layer for an app; each binding is
+overridden individually. Apps without a matching section use `default.conf`,
+and when several sections match they all apply, the later ones winning.

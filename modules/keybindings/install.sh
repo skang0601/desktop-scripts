@@ -90,7 +90,7 @@ else
 fi
 
 # Each file is installed only when it differs, and keyd is restarted only when
-# one of them did: an unconditional pass on every bootstrap was what crashed it.
+# one of them did, since keyd 2.6.0 can crash after loading its config.
 keyd_changed=0
 install_if_changed() {
   local src="$1" dest="$2"
@@ -181,25 +181,37 @@ install_mapper_extension() {
   # which has been stable since the GNOME 45 port, so the list is widened ahead.
   # A copy rather than keyd-application-mapper's symlink, since the package's
   # metadata is read-only.
-  local want
+  local want want_js
   want="$(python3 -c 'import json,sys
 d=json.load(open(sys.argv[1]))
 d["shell-version"]=[str(v) for v in range(45,61)]
 print(json.dumps(d,indent=2))' "$src/metadata.json")"
 
-  if cmp -s "$src/extension.js" "$dest/extension.js" \
+  # The extension starts `keyd-application-mapper -d` on enable and pkills it
+  # on disable. keyd-application-mapper.service owns the mapper instead, so
+  # both lines are removed: left in, the extension's copy and the unit's race
+  # for the mapper's lock, and a disable kills the unit's process.
+  want_js="$(grep -v -e "spawn_command_line_async('keyd-application-mapper" \
+                     -e "spawn_command_line_async('pkill -f keyd-application-mapper" \
+                     "$src/extension.js")"
+  if [[ "$want_js" == "$(cat "$src/extension.js")" ]]; then
+    warn "keyd's extension no longer spawns the mapper the way install.sh expects; check $src/extension.js"
+  fi
+
+  if [[ "$(cat "$dest/extension.js" 2>/dev/null)" == "$want_js" ]] \
       && [[ "$(cat "$dest/metadata.json" 2>/dev/null)" == "$want" ]]; then
-    skip "mapper extension" "$dest, GNOME 45-60"
+    skip "mapper extension" "$dest, GNOME 45-60, mapper left to systemd"
   else
     say "installing keyd's GNOME extension to $dest"
     run mkdir -p "$dest"
-    run install -m644 "$src/extension.js" "$dest/extension.js"
     if dry; then
+      printf '    [dry-run] write %s/extension.js without the mapper spawn\n' "$dest"
       printf '    [dry-run] write %s/metadata.json with shell-version 45-60\n' "$dest"
     else
+      printf '%s\n' "$want_js" >"$dest/extension.js"
       printf '%s\n' "$want" >"$dest/metadata.json"
     fi
-    echo "    the Shell reads extension metadata at login; log out and back in"
+    echo "    the Shell reads extensions at login; log out and back in"
   fi
 
   # Written to the setting directly: the Shell refuses to record an extension
@@ -216,6 +228,25 @@ print(json.dumps(d,indent=2))' "$src/metadata.json")"
   fi
 }
 install_mapper_extension
+
+install_mapper_service() {
+  local unit=keyd-application-mapper.service
+  link_config "$MODULE/$unit" "$HOME/.config/systemd/user/$unit"
+  run systemctl --user daemon-reload
+  if systemctl --user is-enabled --quiet "$unit" 2>/dev/null; then
+    skip "$unit" "enabled"
+  else
+    say "enabling $unit"
+    run systemctl --user enable "$unit"
+  fi
+  # A mapper the extension started before this unit existed holds the lock
+  # file, and the unit's mapper would exit on it.
+  if ! systemctl --user is-active --quiet "$unit"; then
+    pgrep -f 'keyd-application-mapper -d' >/dev/null && run pkill -f 'keyd-application-mapper -d'
+    run systemctl --user start --no-block "$unit"
+  fi
+}
+install_mapper_service
 
 cat <<'EOF'
 

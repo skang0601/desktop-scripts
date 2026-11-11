@@ -2,248 +2,135 @@
 
 - Status: accepted
 - Date: 2026-07-19
-- Supersedes: earlier split ADRs on tool choice, modifier layout, and the
-  terminal exception; those were three views of one decision.
 
-The key-by-key behaviour this decision implements is specified in
-[`modules/keybindings/KEYMAP.md`](../../modules/keybindings/KEYMAP.md).
+The key-by-key behaviour is specified in
+[`modules/keybindings/KEYMAP.md`](../../modules/keybindings/KEYMAP.md). This
+records how it is implemented and why.
 
 ## Context
 
 macOS splits modifier duty: Cmd owns GUI actions (copy, paste, new tab, quit),
-Ctrl owns Unix semantics (SIGINT, EOF, reverse-search, Emacs line editing).
-Linux collapses both onto Ctrl, which is why terminals had to invent
-Ctrl+Shift+C to get copy back. The goal is to recover the split.
-
-Environment is GNOME on Wayland. The distro is not load-bearing; GNOME is.
-
-## The load-bearing constraint
+and Ctrl owns Unix semantics (SIGINT, EOF, readline) and Emacs-style cursor
+motion. Linux puts both on Ctrl, which is why terminals use Ctrl+Shift+C for
+copy. The goal is the macOS split on GNOME under Wayland.
 
 **Ctrl+C is SIGINT in every terminal, ssh session, TUI and REPL, and nothing
-here may endanger that.** Everything else is negotiable, this is not.
+may endanger that.** This rules out swapping Ctrl and Super in hardware, which
+reproduces the macOS layout and gives up the property that makes it worth
+having.
 
-This is what rules out the obvious approach. Swapping Ctrl and Super at the
-hardware level reproduces the macOS *layout*, but destroys the property that
-makes the layout worth having.
+## Translation, not a new modifier
 
-The constraint governs Ctrl+C and the shell's editing keys, not the Ctrl
-modifier wholesale. Ctrl carries an emacs navigation layer (see Layer 1),
-because "Ctrl owns Emacs line editing" is half of the split this ADR exists to
-recover -- a Ctrl that does nothing is not the macOS behaviour, just an absence.
-The layer is scoped so the constraint holds by construction: `[nav:C]` leaves
-every unlisted key carrying Ctrl, so Ctrl+C is never a mapped key at all.
+GTK, Qt, Electron and web apps hardcode Ctrl for their shortcuts, and nothing
+makes them listen for Super. So Cmd+X has to be **translated** into the Ctrl+X
+the app already handles. The same mechanism provides the terminal exceptions.
 
-## Super is not Cmd for free
-
-The tempting framing is "make Super a genuinely separate modifier like Cmd, and
-bind everything to it." That cannot work for in-application shortcuts. GTK, Qt,
-Electron and web apps hardcode Ctrl+C for copy. There is no global switch that
-makes Firefox listen for Super+C, and rebinding every shortcut in every app is
-not a project, it is a hobby.
-
-So Super+X must be **translated** into the Ctrl+X the app is already listening
-for. That translation is the actual work, and it is the same mechanism as the
-terminal special-case -- not a separate feature.
-
-Where the translation can live is decided by Wayland: there is no `XGrabKey`,
-and no client may inject synthetic keys into another client. Anything built on
-"query the focused window, then send a keystroke" is dead on arrival. What still
-works is remapping *below* the display server, at the kernel evdev layer, which
-is what `keyd` does -- it grabs the real keyboard and re-emits through uinput,
-so the compositor is irrelevant to the emission path.
-
-`xremap` occupies the same layer and was the runner-up. `Toshy` and
-`gnome-macos-remap-wayland` were both tried previously and set aside: capable,
-but large opinionated stacks that are hard to debug or diverge from. keyd is one
-small C daemon with an INI config that diffs cleanly in git.
+Wayland decides where the translation can run. No client may grab keys
+globally or inject keys into another client, so the remapping happens below
+the display server: grab the evdev devices, re-emit through uinput. keyd does
+that.
 
 ## Decision
 
-### Layer 1 - keyd, `/etc/keyd/default.conf`
+keyd, in three layers.
+
+### 1. keyd (`default.conf`)
 
 ```
 [main]
 meta    = layer(mac)
 control = layer(nav)
+alt     = layer(opt)
 
-[mac:M]
-c = C-insert
-...
-
-[nav:C]
-a = home
-b = left
-...
+[mac:M]          Cmd: GUI actions, line and document motion
+[nav:C]          Ctrl: Emacs motion (Home, End, arrows, Backspace)
+[opt:A]          Option: word and paragraph motion
+[mac+nav]        Ctrl+Cmd: GNOME's window keys, lock, full screen
+[mac+shift]      Shift+Cmd: screenshots, help
 ```
 
-**Navigation belongs in keyd, not in GNOME's Emacs `gtk-key-theme`.** The theme
-is the obvious route and cannot work: by the time a key reaches GTK, the `mac`
-layer has already rewritten `Super+A` into a literal `Ctrl+A`, so the theme
-captures both spellings and `Super+A` stops selecting all. Cmd and Ctrl are
-distinguishable on macOS because they are genuinely different modifiers; here
-they are collapsed by construction, and only keyd -- upstream of the collapse --
-can tell them apart. The theme is also GTK3-only, so it is inert in the GTK4
-apps that make up most of GNOME 49.
+The keyd behaviour the config depends on:
 
-**GTK key themes are a dead end; do not re-try them.** Two attempts, both
-rejected:
+- **`layer()`, not `overload()`.** keyd sends a clean Super press and release
+  for an isolated tap of a layer key, so a Super tap still opens the overview.
+  Super is never sent with a translated key, so Cmd+C does not open it either.
+  `overload(mac, meta)` does not parse, because `meta` is an alias rather than
+  a key name.
+- **`:M`, `:C` and `:A` keep the modifier on unmapped keys.** Super+Tab still
+  reaches GNOME as Super+Tab, and Ctrl+C as Ctrl+C. Without the suffix, keyd
+  would drop the modifier.
+- **Explicit bindings drop the layer's modifier but keep physically held
+  ones.** `left = home` in `[mac:M]` sends Home, and with Shift held,
+  Shift+Home.
+- **A composite layer overrides its parts only for the keys it lists,** and
+  states every modifier it sends.
 
-Stock `Emacs` binds `<ctrl>a/e/f/n/w`, exactly what the mac layer emits for
-Cmd+A/E/F/N/W. Once keyd has rewritten Cmd+A into a literal Ctrl+A nothing
-downstream can separate them, so the theme captures both and select-all, find
-and close break in every GTK3 text field.
+**The `nav` layer holds only keys that are harmless in a terminal without the
+per-app layer.** Home, End, the arrows and Backspace are. Delete for Ctrl+D,
+or Enter for Ctrl+O, are not: terminals escape the layer only through
+`app.conf`, which depends on a GNOME extension and a running daemon.
 
-A custom theme binding only the keys neither layer claims (`d/h/k/u/y`) avoids
-that collision and still achieves nothing, because there is nothing left to
-apply it to. GTK4 dropped key themes and this desktop is GTK4 throughout.
-Firefox appears to be the exception -- it links GTK3 -- and is not one: it draws
-its own text fields rather than using GtkEntry/GtkTextView, so the `entry` and
-`textview` selectors match nothing, and its own chrome accelerators own Ctrl+D
-(bookmark), Ctrl+K (search) and Ctrl+U (view-source) regardless of any theme.
+### 2. GNOME (`gsettings.sh`)
 
-Emacs-style editing therefore lives in the nav layer only. Ctrl+D/K/U/Y are
-available in a terminal, from the shell's own readline, and nowhere else.
+GNOME's defaults already match macOS for Super+Tab (Cmd+Tab), Super+\`
+(Cmd+\`), Super+H (Cmd+H) and the Super tap (Mission Control). They only need
+Super to survive keyd, which `[mac:M]` guarantees. `gsettings.sh` binds
+Super+Space to the overview (Spotlight), moves the app grid to
+Shift+Super+Space because Super+A is select all, and clears the input-source
+switcher off Super+Space.
 
-**The `nav` layer holds only keys that are safe in a terminal without Layer 3.**
-`a`, `e`, `b`, `f`, `p`, `n` become Home, End and the arrows. `d`, `h`, `k`,
-`w`, `u` and `y` stay out: they are EOF and readline editing, and a terminal
-escapes the layer only via `app.conf`, which depends on the fragile Layer 3.
-Anything in the layer has to be survivable when that daemon is down. Home and
-the arrows are; Delete is not.
+Each key in `[mac:M]` takes GNOME's Super binding for that key. KEYMAP.md lists
+those bindings and where each one moved.
 
-Four details of keyd 2.6.0 that the config depends on:
+Read GNOME's defaults with `dconf read`, not `gsettings get`, which cannot tell
+a schema default from a local override.
 
-**Comments cannot follow a binding.** keyd has no trailing-comment syntax and
-takes the rest of the line as the action, so `c = C-insert  # copy` is an
-invalid action and the binding is dropped. `keyd check` calls this a `WARNING`
-and exits 0, so an entire layer can be inert while the config validates. The
-installer treats any warning as fatal and checks the repo copy before installing
-it, so a config that lost its bindings this way cannot reach `/etc`.
+### 3. Per-app layer (`app.conf`)
 
-**`layer()` is the only workable form.** keyd special-cases an isolated tap of a
-layer key and emits a clean meta down/up pair, so tap-Super still opens
-Activities. `overload()` cannot substitute: `meta` is a left-hand-side alias
-rather than a key name, so `overload(mac, meta)` does not parse, and
-`overload(mac, leftmeta)` is silently rewritten to `layer(meta)`, which never
-opens the overview.
+Terminals need Cmd+C to send Ctrl+Shift+C, and Emacs needs Ctrl and Option
+untranslated. That needs to know which window has focus, which on Wayland only
+the compositor knows. keyd's GNOME extension writes the focused window's class
+to a FIFO, and `keyd-application-mapper` applies the matching `app.conf`
+section to keyd. The extension reports focus and never injects keys. Details
+are in [gnome-wayland-bridge.md](../../modules/keybindings/gnome-wayland-bridge.md).
 
-**The `:M` on `[mac:M]` is load-bearing.** In a modifier layer, keys with no
-explicit mapping are emitted *with that modifier applied*, so `Super+Tab` still
-reaches GNOME as Super+Tab. A plain `[mac]` drops Super and emits a bare Tab,
-breaking every GNOME Super binding.
+The clipboard is Ctrl+Insert/Shift+Insert rather than Ctrl+C/V. GTK, Qt,
+browsers and Electron accept both spellings, so copying never sends Ctrl+C.
+Ptyxis accepts neither as a shortcut, so in terminals Cmd+C/V need the per-app
+layer.
 
-**Explicit bindings ignore the layer's own modifier, but not physically held
-ones.** `c = C-insert` inside `[mac:M]` emits Ctrl+Insert, not
-Super+Ctrl+Insert, while a held Shift passes through -- so `Super+Shift+T` gives
-`Ctrl+Shift+T`, and multi-modifier chords need no extra configuration.
+## Rejected
 
-### Layer 2 - GNOME, mostly already done
-
-Most of GNOME's defaults are already macOS-shaped, which makes Layer 2 far
-smaller than it looks:
-
-| Binding | Stock GNOME default? | macOS equivalent |
-| --- | --- | --- |
-| `switch-applications` = `<Super>Tab` | yes | Cmd+Tab |
-| `switch-group` = `<Super>Above_Tab` | yes | Cmd+\` |
-| `minimize` = `<Super>h` | yes | Cmd+H |
-| `overlay-key` = `Super` (tap) | yes | Mission Control |
-| `toggle-overview` = `<Super>space` | **no -- unbound by default** | Cmd+Space / Spotlight |
-
-The first four need no configuration at all; they only need Super to *survive*
-keyd, which is what `[mac:M]` guarantees.
-
-`toggle-overview` is the exception: its schema default is `@as []`, unbound.
-Stock GNOME reaches the overview via the Super *tap* (`overlay-key`), not
-Super+Space, so `Super+Space` for Spotlight is a change `gsettings.sh` makes
-rather than something inherited.
-
-Keys left out of the keyd layer so GNOME can have them: `tab`, `` ` ``, `space`,
-`h`.
-
-Establish such defaults with `dconf read`, not `gsettings get`. `gsettings get`
-returns a user override indistinguishably from a schema default, so a setup
-script written by reading one machine's output will encode that machine's
-accidents as though they were universal.
-
-One real collision remains: `Super+A` is GNOME's app grid and is also Cmd+A
-select-all. Select-all wins -- it is used hundreds of times a day. Any key
-present in the layer is fully consumed from GNOME (including with Shift held),
-so the app grid must move to a key that is *not* in the layer.
-`modules/keybindings/gsettings.sh` moves it to `<Shift><Super>space`, which keeps a tidy
-parallel: Super+Space is Spotlight, Super+Shift+Space is Launchpad.
-
-### Layer 3 - keyd-application-mapper + GNOME extension
-
-Terminals need `Super+C` to mean Ctrl+Shift+C, not Ctrl+C. That needs focus
-awareness, which on Wayland only the compositor has. keyd's answer:
-`keyd-application-mapper` reads `~/.config/keyd/app.conf`, and a GNOME Shell
-extension **bundled in the keyd repo** feeds it the focused window's class over
-a FIFO.
-
-The division of labour is what makes this Wayland-legal: the extension only
-*reports focus* and never injects keys, while keyd does the emission in the
-kernel, where Wayland's restrictions don't apply.
-
-The bundled extension's `shell-version` list stops at the GNOME current when
-keyd was released, and the Shell skips an extension whose list omits the
-running version. The installer copies it into the user's extensions directory
-with the list widened through GNOME 60; see
-`modules/keybindings/gnome-wayland-bridge.md`.
-
-xremap was reconsidered in 2026-11 and rejected again on a requirement of its
-own: its key-combo output releases held modifiers around each translated key,
-so GNOME sees Super pressed and released alone and opens the overview on every
-Cmd+C. keyd's `layer()` holds Super back until a key needs it.
-
-### Layer 4 - terminal config
-
-Considered and rejected. The proposal is to let terminals bind Super+C natively
-and skip the special-case entirely. It cannot work here: if keyd maps `c` in the layer, the terminal never
-sees Super+C. To let it through, `c` would have to be unmapped -- and then
-Super+C does nothing in every GUI app. The two requirements are mutually
-exclusive without focus awareness, which is exactly why Layer 3 exists.
-
-The choice of `C-insert`/`S-insert` over `C-c`/`C-v` for the clipboard buys
-this in GUI apps: GTK4 binds both spellings, so Super+C copies while Ctrl+C
-stays SIGINT.
-
-It buys nothing in a terminal. Ptyxis ignores both Insert forms as
-accelerators, so Super+C and Super+V do nothing there; rebinding
-`copy-clipboard` to `<ctrl>Insert` was tried and does not work. The terminal
-clipboard is `Ctrl+Shift+C`/`V`, reached by pressing those keys physically.
-There is no Super spelling for it without Layer 3, and this design has no
-fallback that changes that.
-
-Meeting terminals halfway through their own accelerators was considered and
-rejected. Ptyxis exposes its shortcuts as gsettings, and binding `select-all`,
-`search` and `new-window` to bare Ctrl+A/F/N would give Super+A/F/N a meaning
-there without Layer 3. But Layer 3 hands Ctrl+A/E/B/F/P/N back to the shell in
-a terminal, and a bare-Ctrl accelerator then eats the key before readline or
-tmux sees it: Ctrl+A selects all instead of reaching the tmux prefix. Ptyxis
-keeps its stock Ctrl+Shift accelerators, and terminals depend on Layer 3 for
-the Cmd spellings.
+- **xremap.** It works at the same level as keyd and does per-app matching
+  itself, but its key-combo output releases held modifiers around each
+  translated key. GNOME then sees Super pressed and released alone and opens
+  the overview on every Cmd+C. The workaround, a virtual modifier, breaks
+  holding Super for Super+Tab.
+- **Toshy, Kinto, gnome-macos-remap-wayland.** Large opinionated stacks that
+  are hard to debug or to diverge from. keyd is one small C daemon with an INI
+  config that diffs cleanly.
+- **GNOME's Emacs `gtk-key-theme`.** By the time a key reaches GTK, keyd has
+  turned Cmd+A into a literal Ctrl+A, so a theme binding Ctrl+A catches both
+  and select all breaks. A theme limited to keys neither layer uses does
+  nothing in practice: GTK4 has no key themes, and Firefox draws its own text
+  fields.
+- **Ptyxis shortcuts on bare Ctrl.** Binding `select-all` to Ctrl+A would give
+  Cmd+A a meaning in the terminal without the per-app layer. But that layer
+  hands Ctrl+A back to the shell, and the shortcut would then take it from
+  readline and tmux.
+- **Terminals binding Super+C themselves.** keyd translates Super+C before
+  any app sees it. Leaving it untranslated breaks copy everywhere else.
 
 ## Consequences
 
-- Ctrl+C, EOF and readline editing are untouched, in local terminals and remote
-  ssh sessions alike.
-- Ctrl+A/E/B/F/P/N no longer reach applications that bound them to something
-  else. In a shell they are the readline motions they already were; elsewhere
-  Ctrl+A most commonly meant select-all, which now lives on Super+A only.
-- Terminals rely on Layer 3 to get Ctrl+A/E/B/F/P/N back verbatim. Without it
-  they still navigate, which is survivable, but a tmux prefix on Ctrl+A needs
-  either the extension working or that key dropped from the layer.
-- Layer 1 alone is a usable setup. Layers 2-3 are refinements, and the design
-  degrades in that order rather than collapsing.
-- A key added to the layer is a GNOME Super binding removed. That trade is made
-  once per key, deliberately.
-- `Super+Q` is app-dependent: Ctrl+Q is a convention, not a guarantee, and some
-  apps implement no quit accelerator. Alt+F4 remains the reliable close.
-- Electron and Chromium apps handle accelerators idiosyncratically and are worth
-  testing individually (VS Code, browsers, Slack).
-- Anything reading raw modifier state -- games, VMs, remote desktop -- sees the
-  remapped keys. keyd's `[ids]` section can exclude devices; an `app.conf`
-  section can rebind keys back to their `M-` originals per window class.
-- keyd needs root and grabs the keyboard. A bad config can lock you out; keep a
-  second input device or an ssh session open while iterating.
+- Ctrl+C, EOF and readline editing are untouched, locally and over ssh.
+- Ctrl+A/E/B/F/P/N/H mean cursor motion in every app. Apps that bound them to
+  something else lose those bindings; Ctrl+A's select all is Cmd+A.
+- Without the per-app layer, terminals still navigate and Ctrl is still the
+  shell's, but Cmd+C/V do nothing there.
+- Anything that reads raw keys (games, VMs, remote desktop) sees the
+  translated keys. `[ids]` can exclude a device, and an `app.conf` section can
+  send a key back unchanged for a window class.
+- keyd runs as root and grabs the keyboards. A broken config can lock the
+  keyboard out, so keep a second input device or an ssh session while changing
+  it.

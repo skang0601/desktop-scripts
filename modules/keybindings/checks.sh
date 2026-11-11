@@ -84,28 +84,30 @@ module_checks() {
     check_fail "keyd socket" "/run/keyd.socket is missing" "sudo systemctl restart keyd"
   fi
 
-  if pgrep -f keyd-application-mapper >/dev/null 2>&1; then
-    check_ok "application mapper" "running"
+  check_installed_matches "mapper unit" \
+    "$MODULE/keyd-application-mapper.service" \
+    "$HOME/.config/systemd/user/keyd-application-mapper.service" \
+    "./modules/keybindings/install.sh"
+
+  local unit=keyd-application-mapper.service
+  if systemctl --user is-active --quiet "$unit"; then
+    check_ok "application mapper" "$unit active"
+  elif ! systemctl --user is-enabled --quiet "$unit" 2>/dev/null; then
+    check_fail "application mapper" "$unit is not enabled" "./modules/keybindings/install.sh"
   else
-    check_warn "application mapper" "not running" \
-      "the GNOME extension spawns it; check it is enabled"
+    check_fail "application mapper" "$unit is $(systemctl --user is-active "$unit" 2>/dev/null)" \
+      "journalctl --user -u $unit -n 20"
   fi
 
-  # app.log is append-only and its lines carry no timestamps, so counting every
-  # ERROR ever written turns one outage into a permanent failure -- keyd being
-  # down for a minute leaves dozens of "failed to connect" lines that no later
-  # success erases. Only the tail is read, and it is a warning rather than a
-  # failure: these lines are a record that something went wrong, not evidence
-  # that anything is wrong now. The live checks above answer that.
-  local log="$HOME/.config/keyd/app.log" errors
-  if [[ -f "$log" ]]; then
-    errors="$(tail -n 40 "$log" 2>/dev/null | grep -c ERROR || true)"
-    if (( errors > 0 )); then
-      check_warn "mapper log" "$errors error line(s) in the last 40" \
-        "tail $log; : > $log to reset once keyd is healthy"
-    else
-      check_ok "mapper log" "no recent errors"
-    fi
+  # In the foreground the mapper logs to the journal. ERROR lines are a record
+  # of what went wrong in the last hour, not proof that anything is wrong now,
+  # so they warn rather than fail.
+  local errors
+  errors="$(journalctl --user -u "$unit" --since=-1h --no-pager -o cat 2>/dev/null | grep -c ERROR || true)"
+  if (( errors > 0 )); then
+    check_warn "mapper log" "$errors error line(s) in the last hour" "journalctl --user -u $unit --since=-1h"
+  else
+    check_ok "mapper log" "no errors in the last hour"
   fi
 
   local uuid=keyd@keyd.rvaiya.github.com
