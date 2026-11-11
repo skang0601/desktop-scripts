@@ -25,7 +25,7 @@ Set it explicitly on each machine:
 
 ```sh
 sudo hostnamectl set-hostname bazzite
-hostnamectl status | grep Static      # should no longer say (unset)
+hostnamectl status | grep Static      # shows the name, not (unset)
 ```
 
 Or bypass the guesswork entirely:

@@ -4,47 +4,32 @@ The desktop app plus the `op` CLI. The SSH agent socket at
 `~/.1password/agent.sock` is the point: the [ssh](../../../ssh) module depends on
 it for every git-over-ssh operation.
 
-## Not Flatpak
+## Why a brew cask
 
-The Flathub build is vendor-verified, but 1Password's docs state the SSH agent
-does not work under Flatpak, and the manifest confirms it: no
-`--filesystem=home`, and `$HOME` redirected into the sandbox, so the agent
-socket cannot appear on the host. The Flatpak would break authentication
-outright.
+The app comes from the `ublue-os/tap` cask, which packages 1Password's own
+Linux tarball and installs it on the host. The agent socket, `op`, the polkit
+policy and browser integration then work as they do from the vendor's
+packages (ADR 0005). On a traditional system the rpm is used instead.
 
-Confirmed on this machine rather than read off the manifest -- with the Flatpak
-installed and running, no socket appeared on the host.
+- **Not the Flatpak.** It has no `--filesystem=home` and redirects `$HOME`
+  into the sandbox, so the agent socket never appears on the host, and
+  1Password documents that the SSH agent does not work under Flatpak.
+- **Not the rpm, on an atomic system.** It would be a layered package, which
+  needs a reboot per change and rides along on every image update. Its `%post`
+  also builds the polkit policy's list of allowed users from `/etc/passwd`
+  while layering, and whether that list includes the desktop user on an
+  image-based system is untested. Releases before 8.12 cannot be layered at
+  all: their `%post` runs `mkdir -p /usr/local/bin` against a dangling
+  `/usr/local` symlink and aborts.
+- **Not in a distrobox.** The agent works from the `ubuntu` box, but `op`
+  cannot reach the app across the container boundary in either direction, and
+  polkit, autostart and browser integration each need manual fixes.
 
-## Not the rpm, either
-
-The rpm cannot be layered at all. Its `%post` runs `mkdir -p /usr/local/bin`,
-and on an ostree system `/usr/local` is a symlink into `/var` that
-rpm-ostree's bwrap sandbox leaves unpopulated; the mkdir gets `EEXIST` on the
-dangling symlink and the scriptlet aborts, which rpm-ostree treats as fatal
-where dnf only warns.
-
-1Password fixed that in the 8.12 series: `%post` now links into `/usr/bin`,
-with a comment naming the rpm-ostree failure. The cask is still the route
-here, because the rpm would be a layered package (a reboot per change, and
-riding along on every image update), and its `%post` builds the polkit
-policy's owner list from `/etc/passwd` at layering time, which on an
-image-based system has not been shown to include the desktop user.
-
-That leaves a brew cask from `ublue-os/tap`, which packages 1Password's own
-Linux tarball and puts the app on the host, where the agent socket, `op`, the
-polkit policy and browser integration all work without special handling
-(ADR 0005). On a traditional system the rpm is fine and is used instead.
-
-Trusting that tap is a real decision: its casks `sudo` to install a polkit
-policy into `/etc/polkit-1/actions`, create the `onepassword` group, and set
-setuid/setgid bits. The app names the tap rather than trusting taps in general.
-
-Running the app in the `ubuntu` box was tried and works for the agent, but `op`
-does not survive the container boundary in either direction, and the polkit,
-autostart and browser paths each need patching up by hand.
-
-This app declared `app_blocked` until the `%post` failure stopped being a dead
-end and became a reason to install from the cask instead.
+The tap's casks run `sudo` to install the polkit policy into
+`/etc/polkit-1/actions`, create the `onepassword` group, and set setuid/setgid
+bits, so the app names this tap specifically rather than trusting taps in
+general. Casks that `sudo` are installed with `SUDO_ASKPASS` unset; see
+`install_cask` in [lib.sh](../../lib.sh).
 
 ## Start at login
 

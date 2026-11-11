@@ -36,8 +36,7 @@ Consequences worth knowing:
   no `--filesystem=home`, and `$HOME` redirected into the sandbox. The socket
   path is hardcoded and not configurable, so there is no workaround. The
   [packages](../packages/apps.d/1password) module installs a brew cask that
-  packages 1Password's own Linux build; the RPM cannot be layered at all,
-  because its `%post` aborts under rpm-ostree.
+  packages 1Password's own Linux build rather than layering the rpm.
 - Enable it in 1Password under **Settings > Developer > Use the SSH agent**. The
   socket only exists while the app is running.
 - `$SSH_AUTH_SOCK` usually points at gnome-keyring, which holds nothing here.

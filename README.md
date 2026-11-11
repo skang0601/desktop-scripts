@@ -1,13 +1,11 @@
 # desktop-scripts
 
-My Linux desktop setup, kept in git so a reinstall is a checkout and one command
-rather than an afternoon of rediscovery -- and so several machines can share the
-parts they have in common without pretending to be identical.
+My Linux desktop setup, kept in git so a reinstall is a checkout and one
+command, and so several machines can share what they have in common.
 
-**Target environment:** GNOME on Wayland. The distro underneath is not
-load-bearing; the installers branch on traditional (`dnf`) vs atomic/image-based
-(`rpm-ostree`, bootc) systems. Developed on Fedora Workstation, headed for
-Bazzite.
+**Target environment:** GNOME on Wayland. The main machine runs Bazzite; the
+installers also support traditional Fedora, branching on `dnf` versus
+atomic/image-based (`rpm-ostree`, bootc) systems.
 
 ## Setup on a new machine
 
@@ -33,8 +31,8 @@ such machine, so set one per install or pass `--host`. See
 ./bootstrap.sh keybindings     # run one module, ignoring the host file
 ```
 
-`--dry-run` is passed through to each module, so it's the way to inspect what a
-fresh machine is about to have done to it before committing.
+`--dry-run` is passed through to each module, so it shows everything a fresh
+machine is about to have done to it.
 
 ## Layout
 
@@ -68,12 +66,12 @@ A module opts in by adding `checks.sh` defining `module_checks()`. As with
 
 | Module | What it does |
 | --- | --- |
-| [`keybindings`](modules/keybindings/) | macOS-style Cmd/Ctrl split via keyd, plus the GNOME shortcut adjustments that go with it |
-| [`packages`](modules/packages/) | apps and tooling -- emacs/Doom, go, rust, zig, claude-code, steam, 1password + CLI, jetbrains-toolbox -- installed only when missing, one file per app in `apps.d/` |
+| [`keybindings`](modules/keybindings/) | macOS keys via keyd, specified in [KEYMAP.md](modules/keybindings/KEYMAP.md), plus the GNOME shortcuts that go with them |
+| [`packages`](modules/packages/) | apps and tooling, one file per app in `apps.d/`, each installed only when missing: editors and languages, 1Password, Steam, and the local LLM stack (ollama, OpenCode, SearXNG) |
 | [`shell`](modules/shell/) | bash PATH and editor defaults |
 | [`git`](modules/git/) | global git config |
 | [`ssh`](modules/ssh/) | ssh client config; keys come from the 1Password agent |
-| [`gnome`](modules/gnome/) | Studio Display brightness (slider, keys, auto-brightness) via the [asd-brightness](https://github.com/skang0601/asd-brightness) extension, and the login screen at the session's display scale |
+| [`gnome`](modules/gnome/) | Studio Display brightness via the [asd-brightness](https://github.com/skang0601/asd-brightness) extension, the login screen at the session's display scale, and no automatic suspend |
 | [`tailscale`](modules/tailscale/) | joins the tailnet and serves the OpenCode server on it, for the phone |
 
 Each module owns its own config, installer and README. Adding one means creating
@@ -90,9 +88,8 @@ that module's own config.
 
 ## Decisions
 
-`docs/decisions/` holds the ADRs. They're the reason this repo exists in a form
-more elaborate than a tarball of dotfiles: config records *what*, and the
-expensive thing to rediscover after a reinstall is *why*.
+`docs/decisions/` holds the ADRs. Config records what the setup is; the ADRs
+record why, which is the expensive part to rediscover after a reinstall.
 
 - [0001](docs/decisions/0001-use-adrs.md) -- why ADRs at all
 - [0002](docs/decisions/0002-macos-keybindings.md) -- the keybinding design

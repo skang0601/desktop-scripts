@@ -30,7 +30,7 @@ An app with more to say than fits this table has a README beside its script.
 | [ollama](apps.d/ollama) | tarball | brew's bottle has no CUDA; auto-pins to the GPU not driving the display, or pools every card when the model needs them |
 | [searxng](apps.d/searxng) | podman quadlet | local metasearch on loopback; web-search backend for gptel |
 | [opencode-desktop](apps.d/opencode-desktop) | brew cask | config linked from the repo; local qwen and Devstral subagents |
-| [opencode](apps.d/opencode) | brew | `opencode serve` as a `--user` unit on loopback, password-protected, for the phone over Tailscale |
+| [opencode](apps.d/opencode) | podman quadlet | sandboxed `opencode serve` on loopback, password-protected, for the phone over Tailscale |
 
 ## Install strategy
 
@@ -57,10 +57,9 @@ interactive boxes that share `$HOME` -- see [dev-box](apps.d/dev-box). A
 long-running service instead takes a podman **quadlet**: a `.container` file
 symlinked into `~/.config/containers/systemd/`, which podman's systemd
 generator turns into a `--user` service.
-[searxng](apps.d/searxng) is the example.
+[searxng](apps.d/searxng) and [opencode](apps.d/opencode) are the examples.
 
-Three things about quadlets have each cost a debugging session, so they are
-worth knowing before writing the fourth:
+Three properties of quadlets that an app has to account for:
 
 - They are **generated**, so they cannot be `systemctl --user enable`d. The
   `[Install]` section inside the `.container` is what the generator acts on.
@@ -112,8 +111,8 @@ Apps run in name order. One that needs another first calls `require_app <name>`
 rather than relying on that order.
 
 Write `app_check` against every location the app might already occupy, not just
-the one this script would install to. Doom, for instance, lives at
-`~/.config/emacs` now but `~/.emacs.d` still shadows it.
+the one this script would install to. Doom, for instance, installs to
+`~/.config/emacs`, and an existing `~/.emacs.d` shadows it.
 
 An app may also define `app_checks()`, reported by [`doctor.sh`](../../doctor.sh).
 `app_check` answers "is it here" in one bit; `app_checks` says what is actually
@@ -156,7 +155,7 @@ A tool an app exists to support is part of that app, not an app of its own:
 would both want one -- `ripgrep`, `shellcheck` -- it goes to the app that would
 break without it, and `app_check` on the other tests for the binary.
 
-Helpers available: `install_cli`, `install_rpm`, `install_flatpak`,
+Helpers available: `install_cli`, `install_cask`, `install_rpm`, `install_flatpak`,
 `flatpak_installed`, `require_app`, `brew_split_shared_dir`, `brew_relink`,
 `brew_tap_trusted`, `blocked` from `lib.sh`; `have`, `run`, `dry`, `say`, `warn`, `is_atomic`,
 `link_config` from `../../lib/common.sh`.

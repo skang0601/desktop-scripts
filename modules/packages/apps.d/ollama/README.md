@@ -18,9 +18,8 @@ written outside `$HOME` and no `sudo` is involved. `ollama` resolves its runners
 through `/proc/self/exe`, which follows the symlink, so `lib/ollama` is found
 relative to the unpacked prefix rather than to `~/.local/bin`.
 
-The release asset is `ollama-linux-amd64.tar.zst`, pinned to `$VERSION`.
-Upstream moved away from `.tgz`, and the old `ollama-linux-amd64.tgz` URL 404s
-on current releases.
+The release asset is `ollama-linux-amd64.tar.zst`, pinned to `$VERSION`;
+current releases publish no `.tgz`.
 
 ## Choosing the GPU and the model
 

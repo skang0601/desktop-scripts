@@ -55,8 +55,7 @@ Nothing here changes what an existing command does. There is no `alias
 grep=...`, so a line copied out of a script or a doc behaves the same when
 pasted into a shell. The exceptions are `rm`, `cp` and `mv`, which take
 interactive flags -- `rm -I` rather than `-i`, so a recursive delete prompts
-once instead of per file, which is the difference between a question and a
-reflex.
+once instead of once per file.
 
 Git shorthands are deliberately absent. They live in [git](../git)'s gitconfig
 as `git s`, `git lg`, `git last` and `git unstage`, which work over ssh and

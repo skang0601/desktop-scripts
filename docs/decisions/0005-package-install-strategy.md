@@ -1,7 +1,7 @@
 # 0005 - Prefer user-level installs over layering
 
 - Status: accepted
-- Date: 2026-07-19, revised 2026-07-20 to add containers and brew casks
+- Date: 2026-07-19
 - Extends: [0004](0004-installing-on-atomic-systems.md)
 
 ## Context
@@ -17,20 +17,15 @@ with `brew-setup.service` enabled, Flathub is preconfigured in
 `/etc/flatpak/remotes.d`, and Steam is already installed. None of that is true
 on a traditional Fedora install, where dnf is simply the right answer.
 
-Three cases had no answer in the first version of this ranking:
+Three cases do not fit a plain ranking of package managers:
 
 **Software not published for this distro.** Anthropic ship claude-desktop as a
 `.deb` only. The alternatives were a third-party repackage or nothing.
 
-**Software whose package will not install.** 1Password's rpm runs
-`mkdir -p /usr/local/bin` in `%post`. On an ostree system `/usr/local` is a
-symlink into `/var`, which rpm-ostree's bwrap sandbox leaves unpopulated; the
-mkdir gets `EEXIST` on the dangling symlink and the scriptlet aborts, which
-rpm-ostree treats as fatal where dnf only warns. Flatpak does not help either:
-its manifest has no `--filesystem=home` and redirects `$HOME`, so
-`~/.1password/agent.sock` is created inside the sandbox and never reaches the
-ssh module. Confirmed on this machine rather than from the manifest -- with the
-Flatpak installed and running, no socket appeared on the host.
+**Software whose packages do not fit.** 1Password's Flatpak has no
+`--filesystem=home` and redirects `$HOME`, so `~/.1password/agent.sock` is
+created inside the sandbox and never reaches the ssh module. Its rpm would have
+to be layered, and before 8.12 its `%post` aborted under rpm-ostree.
 
 **Build-time dependencies.** Crates binding system libraries need `-devel`
 packages no atomic image ships. Layering headers makes the host carry them
@@ -61,7 +56,7 @@ Containers are declared by apps in `modules/packages/apps.d/`, and two exist:
 | Box | Image | For |
 | --- | --- | --- |
 | `ubuntu` | `quay.io/toolbx/ubuntu-toolbox:24.04` | claude-desktop, shipped only as `.deb` |
-| `dev` | `registry.fedoraproject.org/fedora-toolbox:44` | `-devel` packages for building |
+| `dev` | `registry.fedoraproject.org/fedora-toolbox:<host release>` | `-devel` packages for building |
 
 `DEB_BOX` and `distrobox_ensure` live in `modules/packages/lib.sh` so several
 apps share one box rather than each pulling an image of its own.
@@ -83,10 +78,9 @@ correct through every failure mode.
 | Shape | Mechanism | For | Example |
 | --- | --- | --- | --- |
 | Interactive box | distrobox | a shell with the host's `$HOME` | `dev-box` |
-| Long-running service | podman quadlet | a daemon | `searxng` |
+| Long-running service | podman quadlet | a daemon | `searxng`, `opencode` |
 
-Two consequences are worth writing down, because both have already cost a
-debugging session:
+Two properties of quadlets matter to installers:
 
 - **Quadlet units are generated, so they cannot be `systemctl --user enable`d.**
   There is no unit file to link. The `[Install]` section inside the
@@ -112,9 +106,9 @@ boundary because a unix socket is a filesystem object, not a network one.
 
 That is the entire difference from Flatpak, and it is the reason a container can
 host something whose whole output is a socket in `$HOME` where a Flatpak cannot.
-Measured directly while choosing 1Password's route: the app in a box did put a
-working agent socket on the host, which the Flatpak never did. Flatpak's
-isolation is the feature; distrobox's lack of it is the feature.
+1Password in a box puts a working agent socket on the host; its Flatpak does
+not. Flatpak's isolation is its feature, and distrobox's lack of it is
+distrobox's.
 
 Also shared by default: the session D-Bus at `/run/user/$UID/bus`, the Wayland
 and X11 sockets, and the udev/dev tree. `distrobox-export` writes host entry
@@ -127,8 +121,6 @@ Reference: [distrobox useful tips](https://distrobox.it/useful_tips/),
 
 ## Container limitations
 
-These are the edges found in practice, not a general list:
-
 - **The system bus is not at its canonical path.** It is reachable at
   `/run/host/run/dbus/system_bus_socket`, so anything using polkit needs
   `DBUS_SYSTEM_BUS_ADDRESS` pointed at it. 1Password's "unlock with system
@@ -138,8 +130,8 @@ These are the edges found in practice, not a general list:
   against an app in the box, and an exported `op` from the box against an app on
   the host, both fail with "connecting to desktop app". Host-to-host works, from
   either package source. The boundary is what matters, not where either came
-  from -- and note the boxes run with `PidMode=host`, so this is not a pid
-  namespace effect. The exact mechanism is unverified.
+  from. The boxes run with `PidMode=host`, so it is not a pid namespace effect;
+  the mechanism is not known.
 - **Exported apps do not autostart.** `distrobox-export` writes a launcher, not
   an autostart entry. An app whose value is a background service rather than a
   window needs its own `~/.config/autostart` entry, pointing at the same
@@ -165,9 +157,9 @@ These are the edges found in practice, not a general list:
   not. emacs is native because a development editor has to reach compilers, LSP
   servers and toolchains outside the sandbox. 1Password comes from
   `ublue-os/tap`, which packages 1Password's own Linux tarball: its agent cannot
-  cross a Flatpak sandbox and its rpm cannot be layered, and of the routes that
-  leave a working socket on the host, brew is the one that also keeps `op`, the
-  polkit policy and browser integration working without special handling.
+  cross a Flatpak sandbox, and of the routes that leave a working socket on the
+  host without layering, brew is the one that also keeps `op`, the polkit policy
+  and browser integration working without special handling.
   Trusting that tap is a real decision -- its casks sudo into
   `/etc/polkit-1/actions` and set setuid bits -- and is named in the app rather
   than granted broadly.

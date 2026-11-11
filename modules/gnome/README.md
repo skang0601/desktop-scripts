@@ -1,6 +1,6 @@
 # gnome
 
-GNOME desktop setup that lives outside the keybindings module:
+GNOME desktop setup outside the keybindings module:
 
 - **Brightness:** brightness control for an Apple Studio Display / Studio
   Display XDR through the
@@ -10,10 +10,12 @@ GNOME desktop setup that lives outside the keybindings module:
   sensors, switched in the extension's preferences.
 - **Login screen:** the login screen uses the session's display layout, so it
   runs at 2x on the Studio Display.
+- **Power:** the machine never suspends on its own, in the session or at the
+  login screen, so the local LLM and the OpenCode server stay reachable.
 
 ```sh
 ./install.sh --dry-run
-./install.sh                # the login screen step asks for sudo
+./install.sh                # the udev, login screen and power steps ask for sudo
 ```
 
 ## Brightness
@@ -36,11 +38,13 @@ Gotchas:
   `org.gnome.shell enabled-extensions` directly.
 - **The display has no kernel backlight.** Brightness is a USB HID feature
   report, so the helper needs read/write access to the display's `hidraw` nodes.
-  The installer copies the project's `uaccess` rule to
-  `/etc/udev/rules.d` and re-triggers the existing nodes, and `doctor.sh`
-  checks both the rule and that the helper can reach the display.
+  The installer installs the project's `uaccess` rule as
+  `/etc/udev/rules.d/70-apple-studio-display.rules` and re-triggers the nodes.
+  It must sort before systemd's `73-seat-late.rules`, which turns `uaccess` tags
+  into ACLs; under the project's own `99-` name the nodes are tagged and stay
+  root-only. `doctor.sh` checks the rule and that the helper reaches the display.
 - **GNOME's brightness keys are rebound while the extension is enabled.** GNOME
-  50 binds `XF86MonBrightnessUp/Down` in the Shell itself, where they drive only
+  binds `XF86MonBrightnessUp/Down` in the Shell itself, where they drive only
   built-in backlights. The extension empties `org.gnome.shell.keybindings
   screen-brightness-up/down` on enable and restores them on disable.
 
@@ -66,3 +70,17 @@ Gotchas:
   this one applies.
 - `/etc` is preserved and merged across image updates on atomic systems (see
   [ADR 0004](../../docs/decisions/0004-installing-on-atomic-systems.md)).
+
+## Power
+
+GNOME suspends an idle machine on AC after 15 minutes, in the session and at
+the login screen separately.
+
+- **Session:** `org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type`
+  is set to `nothing`.
+- **Login screen:** the same key is set in GDM's dconf database, from
+  `gdm-power.dconf` installed as `/etc/dconf/db/gdm.d/90-desktop-scripts-power`,
+  then compiled with `dconf update`. Without it, the machine suspends while it
+  sits at the login screen after a reboot.
+
+The screen still blanks when idle.

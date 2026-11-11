@@ -5,24 +5,20 @@
 
 ## Context
 
-This repo exists because the machine gets reinstalled and the setup has to be
-rebuilt from scratch. Config files record *what* the setup is, but not *why* --
-and the "why" is the expensive part to rediscover (which of five remapping tools
-survived contact with Wayland, why one particular quirk file exists, which
-approach was tried and abandoned).
-
-Two earlier attempts at this same goal already exist in `~/Workspace`
-(`Toshy/`, `gnome-macos-remap-wayland/`) with no record of why they were set
-aside.
+The setup has to be rebuildable from scratch after a reinstall. Config files
+record what the setup is, not why, and the why is what is expensive to
+rediscover: which remapping tool works under Wayland, why a quirk file exists,
+which approaches fail and how.
 
 ## Decision
 
-Every non-obvious choice gets a numbered markdown file in `docs/decisions/`,
-using this format: Context / Decision / Consequences. Numbered sequentially,
-never renumbered. Superseded decisions stay in the repo with their status
-changed to `superseded by NNNN` rather than being deleted.
+Every non-obvious choice gets a numbered Markdown file in `docs/decisions/`
+with Context, Decision and Consequences sections. Numbers are sequential and
+never reused. A superseded decision keeps its file, with its status changed to
+`superseded by NNNN`.
 
 ## Consequences
 
 - Small ongoing writing cost per decision.
-- A reinstall (or a future agent) can reconstruct intent, not just state.
+- A reinstall, or anyone working in the repo later, can recover the intent and
+  not only the state.

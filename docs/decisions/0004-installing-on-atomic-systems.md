@@ -5,8 +5,8 @@
 
 ## Context
 
-This repo is headed for Bazzite, an image-based (rpm-ostree / bootc) desktop.
-That breaks the assumption every install script makes by default:
+The main machine runs Bazzite, an image-based (rpm-ostree / bootc) desktop.
+That breaks the assumptions an install script normally makes:
 
 - `dnf install` does not layer onto the running host. On Bazzite, `dnf5` is used
   only to manage repo files; `rpm-ostree install` does the actual install.
