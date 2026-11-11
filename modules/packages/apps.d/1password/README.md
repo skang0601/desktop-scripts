@@ -6,10 +6,11 @@ it for every git-over-ssh operation.
 
 ## Why a brew cask
 
-The app comes from the `ublue-os/tap` cask, which packages 1Password's own
-Linux tarball and installs it on the host. The agent socket, `op`, the polkit
-policy and browser integration then work as they do from the vendor's
-packages (ADR 0005). On a traditional system the rpm is used instead.
+The app and `op` are `ublue-os/tap` casks in the [Brewfile](../../Brewfile),
+which package 1Password's own Linux tarball and install it on the host. The
+agent socket, `op`, the polkit policy and browser integration then work as they
+do from the vendor's packages (ADR 0005). This entry only repairs autostart and
+reports state.
 
 - **Not the Flatpak.** It has no `--filesystem=home` and redirects `$HOME`
   into the sandbox, so the agent socket never appears on the host, and
@@ -27,9 +28,9 @@ packages (ADR 0005). On a traditional system the rpm is used instead.
 
 The tap's casks run `sudo` to install the polkit policy into
 `/etc/polkit-1/actions`, create the `onepassword` group, and set setuid/setgid
-bits, so the app names this tap specifically rather than trusting taps in
-general. Casks that `sudo` are installed with `SUDO_ASKPASS` unset; see
-`install_cask` in [lib.sh](../../lib.sh).
+bits, so the Brewfile trusts this tap by name rather than taps in general.
+`install.sh` runs `brew bundle` with `SUDO_ASKPASS` unset so that `sudo`
+prompts on the terminal; see `brew_bundle` in [lib.sh](../../lib.sh).
 
 ## Start at login
 

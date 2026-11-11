@@ -18,12 +18,11 @@ specifically.
 ## Dependencies
 
 They come from the modules enabled in `doom/init.el`, and `doom doctor` is what
-says which. `DOOM_DEPS` in `emacs.sh` is that list, with the module each entry
-answers to; `app_check` tests it, so adding a row is enough to get it installed
-on the next run.
+says which. They are listed in the packages [Brewfile](../../Brewfile) under
+"What Doom's modules shell out to", which is where a new one goes.
 
-Language servers are **not** in it. `gopls` lives with [go](../go.sh), `zls`
-with [zig](../zig.sh), and `rust-analyzer` comes with the rustup toolchain, so a
+Language servers are listed with their languages in the same file (`gopls` with
+go, `zls` with zig), and `rust-analyzer` comes with the rustup toolchain, so a
 machine gets them whether or not it runs emacs.
 
 `sqlite` is not in it either. `:lang org +roam` wants one, and Emacs 29 and
@@ -37,7 +36,7 @@ Three warnings from `doom doctor` are left standing on purpose:
   serve languages that are not on.
 - **gore**, the Go REPL behind `:lang go`. Not in brew, so it would be a
   `go install` of an unmaintained tool landing outside anything that tracks it;
-  `gopls`, `gomodifytags` and `gotests` are all brewed, under [go](../go.sh).
+  `gopls`, `gomodifytags` and `gotests` are all in the [Brewfile](../../Brewfile).
 - **maim / scrot / gnome-screenshot**, for `org-download-clipboard`. The first
   two are X11-only and this is a Wayland session; GNOME dropped
   `gnome-screenshot` for the Shell's own UI. `org-download` has no Wayland

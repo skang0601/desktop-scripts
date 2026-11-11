@@ -37,8 +37,9 @@ catches an `app_check` that does not detect what its own `app_install` just did.
 
 - A new module: `modules/<name>/install.sh`, plus a line in `hosts/*.modules`.
   Nothing else registers it.
-- A new app: one file in `modules/packages/apps.d/` defining `APP_NAME`,
-  `app_check`, `app_install`. Read that module's README first.
+- A new package: a line in `modules/packages/Brewfile`. Setup a package
+  manager cannot do: one file in `modules/packages/apps.d/` defining
+  `APP_NAME`, `app_check`, `app_install`. Read that module's README first.
 - A shared helper: `lib/common.sh` for anything a module needs,
   `modules/packages/lib.sh` for install strategies.
 - A PATH entry: `modules/shell/bashrc.d/10-path.sh`, even when the thing on it

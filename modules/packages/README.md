@@ -1,56 +1,55 @@
 # packages
 
-Apps and tooling, installed only when missing.
+Every package the repo installs, listed in a [Brewfile](Brewfile) and applied
+with `brew bundle`, plus the setup that a package manager cannot do, in
+`apps.d/` (ADR 0006).
 
 ```sh
-./install.sh              # everything in apps.d/
-./install.sh emacs go     # only these
+./install.sh              # the Brewfile, then every app in apps.d/
+./install.sh emacs rust   # only these apps
+./install.sh --upgrade    # also upgrade everything the Brewfile lists
 ./install.sh --dry-run    # show what would happen, change nothing
 ```
 
-## What's here
+## The Brewfile
 
-An app with more to say than fits this table has a README beside its script.
+Formulae, casks, taps and Flatpaks, in Homebrew's own format, which Bazzite also
+uses for `ujust`. Adding a package is one line there, by hand, with
+`brew bundle add --file=Brewfile <name>`, or through `bbrew`. `install.sh` runs
+`brew bundle install --no-upgrade` only when `brew bundle check` reports
+something missing, so a re-run changes nothing. `--upgrade` also brings every
+listed entry up to date, and touches nothing the Brewfile does not list.
+`doctor.sh packages` names anything missing.
 
-| App | Method | Notes |
+A tool that exists to support another sits beside it in the Brewfile, under a
+comment saying what it is for: `gopls` with go, `zls` with zig, and what Doom's
+modules shell out to under one heading.
+
+Homebrew is required. Bazzite ships it, and the module stops if it is absent.
+
+## apps.d
+
+An entry here is setup beyond installing a package, or an install brew cannot
+do:
+
+| App | What it does | Why not just the Brewfile |
 | --- | --- | --- |
-| [1password](apps.d/1password) | brew cask from `ublue-os/tap` (rpm on traditional) | desktop app + `op`; the SSH agent socket is the point |
-| [emacs](apps.d/emacs) | brew / dnf | native, not Flatpak; includes Doom, its config, and what `doom doctor` asks for |
-| go | brew / dnf | Fedora calls it `golang`; carries `gopls`, `gomodifytags`, `gotests` |
-| rust | brew / dnf | `rustup`, not a fixed toolchain; keg-only, so [shell](../shell) puts its shims on PATH |
-| zig | brew / dnf | carries `zls`, which is versioned against the zig release |
-| kubectl | brew / dnf | `k` and its completion live in [shell](../shell) |
-| opentofu | brew | with `tofu-ls`; not in Fedora's repos, so the brew-less path is blocked |
-| git-lfs | brew / dnf | |
-| claude-code | vendor installer | lands in `~/.local/bin`, no root |
+| [1password](apps.d/1password) | repairs the autostart entry, reports the SSH agent | the app writes an autostart `Exec` that misses the cask's binary |
+| [emacs](apps.d/emacs) | Fedora's emacs, Doom, and its config | only the rpm is a GUI build; brew's is headless |
+| rust | `rustup default stable` | rustup is in the Brewfile; the toolchain is a second step |
+| claude-code | vendor installer | lands in `~/.local/bin` and updates itself |
 | claude-desktop | official apt repo, in a distrobox | Anthropic ship Debian/Ubuntu only |
 | [dev-box](apps.d/dev-box) | Fedora toolbox | `-devel` headers for building against system libraries, without layering |
-| steam | Flatpak | preinstalled on Bazzite, so usually a no-op |
-| jetbrains-toolbox | brew cask from `ublue-os/tap` (tarball without brew) | bootstraps Toolbox, which then self-updates |
-| [ollama](apps.d/ollama) | tarball | brew's bottle has no CUDA; auto-pins to the GPU not driving the display, or pools every card when the model needs them |
+| [ollama](apps.d/ollama) | tarball | brew's bottle has no CUDA; pins the GPUs and picks a model for them |
 | [searxng](apps.d/searxng) | podman quadlet | local metasearch on loopback; web-search backend for gptel |
-| [opencode-desktop](apps.d/opencode-desktop) | brew cask | config linked from the repo; local qwen and Devstral subagents |
-| [opencode](apps.d/opencode) | podman quadlet | sandboxed `opencode serve` on loopback, password-protected, for the phone over Tailscale |
+| [opencode-desktop](apps.d/opencode-desktop) | config links, coder model | the cask is in the Brewfile; this is its config |
+| [opencode](apps.d/opencode) | podman quadlet | sandboxed `opencode serve` on loopback, for the phone over Tailscale |
 
-## Install strategy
-
-Ordered by how little they disturb the system, which matters on atomic images
-where layering costs a reboot and can block a rebase (ADR 0005):
-
-1. **Homebrew** for CLI tooling. User-level, no reboot, no layering. Bazzite
-   ships it; on a traditional system it's usually absent, so dnf takes over.
-2. **dnf** on traditional systems.
-3. **Flatpak** for GUI apps. Flathub is preconfigured on Bazzite.
-4. **distrobox** where the host cannot package the software, or the dependency
-   is only needed at build time. A brew cask packaging the vendor's own build
-   beats a container when one exists.
-5. **Vendor installers** where nothing else is published, kept to `$HOME`.
-6. **`rpm-ostree` layering** only as a last resort, with a loud reboot warning.
-
-The ranking is a default, not a rule: an app takes a lower method when a higher
-one cannot deliver what the app exists for. [1password](apps.d/1password) and
-[emacs](apps.d/emacs) both skip Flatpak, and [ollama](apps.d/ollama) skips brew,
-each for a reason recorded in its own README.
+When a package can come from the Brewfile, it does. The other routes, from
+least to most disturbance to an atomic system (ADR 0005): distrobox, where the
+host cannot package the software; a vendor installer kept to `$HOME`, where
+nothing else is published; and `rpm-ostree` layering as the last resort, with a
+loud reboot warning.
 
 Containers cover two different shapes (ADR 0005). `distrobox` is for
 interactive boxes that share `$HOME` -- see [dev-box](apps.d/dev-box). A
@@ -74,13 +73,14 @@ Three properties of quadlets that an app has to account for:
 
 ## Adding an app
 
-Drop a file in `apps.d/`. The whole contract is three things:
+A package goes in the Brewfile. An `apps.d/` entry is for setup around it, and
+the whole contract is three things:
 
 ```sh
-APP_NAME=ripgrep
+APP_NAME=rust
 
-app_check()   { have rg; }
-app_install() { install_cli ripgrep rg; }   # (fedora_name, brew_name)
+app_check()   { [[ -n "$(rustup show active-toolchain 2>/dev/null)" ]]; }
+app_install() { run rustup default stable; }
 ```
 
 `app_check` gates the install, which is what makes re-running a no-op. Each file
@@ -90,7 +90,7 @@ An app that ships files of its own takes a directory instead, named for the app
 and holding a script of the same name:
 
 ```
-apps.d/ripgrep.sh          # script only
+apps.d/rust.sh             # script only
 apps.d/emacs/emacs.sh      # script plus the files it installs
 apps.d/emacs/doom/
 apps.d/emacs/README.md
@@ -148,17 +148,9 @@ app_blocked() {
 Getting that return sense backwards makes the app look permanently blocked, and
 `doctor.sh` will skip its `app_checks` entirely.
 
-A tool an app exists to support is part of that app, not an app of its own:
-`gopls` under go, `zls` under zig, and everything `doom doctor` asks for under
-[emacs](apps.d/emacs). Splitting them out gives a machine that can pass
-`app_check` for the language while the editor for it is unusable. Where two apps
-would both want one -- `ripgrep`, `shellcheck` -- it goes to the app that would
-break without it, and `app_check` on the other tests for the binary.
-
-Helpers available: `install_cli`, `install_cask`, `install_rpm`, `install_flatpak`,
-`flatpak_installed`, `require_app`, `brew_split_shared_dir`, `brew_relink`,
-`brew_tap_trusted`, `blocked` from `lib.sh`; `have`, `run`, `dry`, `say`, `warn`, `is_atomic`,
-`link_config` from `../../lib/common.sh`.
+Helpers available: `install_rpm`, `require_app`, `brew_bundle`,
+`distrobox_ensure`, `blocked` from `lib.sh`; `have`, `run`, `dry`, `say`, `warn`,
+`is_atomic`, `link_config`, `install_file` from `../../lib/common.sh`.
 
 An app needing a PATH entry adds it to [shell](../shell)'s `10-path.sh` rather
 than shipping a fragment of its own. Entries constrain each other -- rustup's

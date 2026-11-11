@@ -9,9 +9,10 @@ keybindings
 packages
 ```
 
-`bootstrap.sh` reads `hosts/$(hostname).modules`. With no matching file it runs
-every module and says so, which is the right default for a fresh install -- add
-a host file when a machine needs to diverge, not before.
+`bootstrap.sh` reads `hosts/$(hostname).modules`. With no matching file it stops
+and asks for `--host <name>` or `--all`, since an unmatched hostname more often
+means the wrong machine than a fresh one. `doctor.sh` only reads, so there it
+checks every module instead.
 
 ## Hostname is a weak identifier
 

@@ -18,16 +18,7 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$REPO/lib/common.sh"
 source "$REPO/lib/checks.sh"
-
-available() { find "$REPO/modules" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort; }
-
-enabled() {
-  if [[ -f "$HOSTFILE" ]]; then
-    sed -e 's/#.*//' -e '/^[[:space:]]*$/d' -e 's/[[:space:]]//g' "$HOSTFILE"
-  else
-    available
-  fi
-}
+source "$REPO/lib/hosts.sh"
 
 ARGS=()
 HOST=""
@@ -44,12 +35,16 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-HOSTFILE="$REPO/hosts/${HOST:-$(hostname)}.modules"
+HOSTFILE="$(host_file "$HOST")"
 
+# Read-only, so a machine without a profile gets every module's checks rather
+# than a refusal.
 if [[ ${#ARGS[@]} -gt 0 ]]; then
   MODULES=("${ARGS[@]}")
+elif [[ -f "$HOSTFILE" ]]; then
+  mapfile -t MODULES < <(host_modules "$HOSTFILE")
 else
-  mapfile -t MODULES < <(enabled)
+  mapfile -t MODULES < <(available_modules)
 fi
 
 CHECK_RESULTS="$(mktemp)"
@@ -152,11 +147,6 @@ N_BLOCKED="$(count blocked)"
 # template, where a literal </script> inside a string would end the element.
 json_escape() {
   local s="$1"; s="${s//\\/\\\\}"; s="${s//\"/\\\"}"; s="${s//</\\u003c}"
-  printf '%s' "$s"
-}
-html_escape() {
-  local s="$1"
-  s="${s//&/&amp;}"; s="${s//</&lt;}"; s="${s//>/&gt;}"; s="${s//\"/&quot;}"
   printf '%s' "$s"
 }
 

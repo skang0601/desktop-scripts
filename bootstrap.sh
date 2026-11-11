@@ -1,32 +1,26 @@
 #!/usr/bin/env bash
 # Run the modules enabled for this machine.
 #
-#   ./bootstrap.sh              # modules from hosts/$(hostname).modules, or all
+#   ./bootstrap.sh              # modules from hosts/$(hostname).modules
+#   ./bootstrap.sh --host work  # use hosts/work.modules regardless of hostname
+#   ./bootstrap.sh --all        # every module, for a machine with no profile
+#   ./bootstrap.sh keybindings  # run specific modules, ignoring the host file
 #   ./bootstrap.sh --list       # show what's available and what's enabled
 #   ./bootstrap.sh --dry-run    # show every command, change nothing
-#   ./bootstrap.sh keybindings  # run specific modules, ignoring the host file
-#   ./bootstrap.sh --host work  # use hosts/work.modules regardless of hostname
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$REPO/lib/common.sh"
-
-available() { find "$REPO/modules" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort; }
-
-enabled() {
-  if [[ -f "$HOSTFILE" ]]; then
-    sed -e 's/#.*//' -e '/^[[:space:]]*$/d' -e 's/[[:space:]]//g' "$HOSTFILE"
-  else
-    available
-  fi
-}
+source "$REPO/lib/hosts.sh"
 
 ARGS=()
 HOST=""
+ALL=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run) DRY_RUN=1; export DRY_RUN ;;
     --list) LIST=1 ;;
+    --all) ALL=1 ;;
     --host) HOST="${2:?--host needs a name}"; shift ;;
     --host=*) HOST="${1#*=}" ;;
     -*) warn "unknown option: $1"; exit 2 ;;
@@ -35,30 +29,33 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-# Hostname is a weak identifier: Fedora leaves /etc/hostname empty and falls
-# back to DEFAULT_HOSTNAME from /etc/os-release, so unrelated machines commonly
-# all answer "fedora". --host exists to say which profile you actually mean.
-HOSTFILE="$REPO/hosts/${HOST:-$(hostname)}.modules"
+HOSTFILE="$(host_file "$HOST")"
 
 if [[ -n "${LIST:-}" ]]; then
   echo "available modules:"
-  available | sed 's/^/  /'
+  available_modules | sed 's/^/  /'
   echo
   if [[ -f "$HOSTFILE" ]]; then
     echo "enabled via $(basename "$HOSTFILE"):"
+    host_modules "$HOSTFILE" | sed 's/^/  /'
   else
-    echo "no $(basename "$HOSTFILE") -- everything is enabled by default:"
+    echo "no $(basename "$HOSTFILE"); pass --host <name> or --all"
   fi
-  enabled | sed 's/^/  /'
   exit 0
 fi
 
 if [[ ${#ARGS[@]} -gt 0 ]]; then
   MODULES=("${ARGS[@]}")
+elif [[ -n "$ALL" ]]; then
+  mapfile -t MODULES < <(available_modules)
+elif [[ -f "$HOSTFILE" ]]; then
+  mapfile -t MODULES < <(host_modules "$HOSTFILE")
 else
-  mapfile -t MODULES < <(enabled)
-  [[ -f "$HOSTFILE" ]] \
-    || echo "note: no $(basename "$HOSTFILE"), running everything"
+  # Every module changes the machine, and a missing profile usually means the
+  # hostname is not the one the profile was written for, so this asks.
+  warn "no $(basename "$HOSTFILE") for this machine"
+  warn "pass --host <name> for a profile in hosts/, --all for every module, or module names"
+  exit 2
 fi
 
 # Hooks under .git/hooks are not tracked, so a clone starts without them. Local

@@ -10,14 +10,7 @@ source "$MODULE/../../lib/common.sh"
 # shellcheck source=lib.sh
 source "$MODULE/lib.sh"
 
-for a in "$@"; do
-  case "$a" in
-    --dry-run) DRY_RUN=1 ;;
-    *) warn "unknown option: $a"; exit 2 ;;
-  esac
-done
-
-dry && say "dry run -- nothing will be changed"
+parse_module_args "$@"
 
 # Bazzite ships tailscale in the image. Anywhere else it is one package from
 # Tailscale's own repo, which is not this module's to add.

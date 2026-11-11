@@ -8,14 +8,7 @@ MODULE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../lib/common.sh
 source "$MODULE/../../lib/common.sh"
 
-for a in "$@"; do
-  case "$a" in
-    --dry-run) DRY_RUN=1 ;;
-    *) warn "unknown option: $a"; exit 2 ;;
-  esac
-done
-
-dry && say "dry run -- nothing will be changed"
+parse_module_args "$@"
 
 # ssh refuses to use a config directory others can write to.
 say "ensuring ~/.ssh exists with 700"

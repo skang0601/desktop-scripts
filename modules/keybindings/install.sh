@@ -13,14 +13,7 @@ source "$MODULE/../../lib/common.sh"
 
 COPR=alternateved/keyd     # keyd is not in Fedora proper; this COPR tracks it
 
-for a in "$@"; do
-  case "$a" in
-    --dry-run) DRY_RUN=1 ;;
-    *) warn "unknown option: $a"; exit 2 ;;
-  esac
-done
-
-dry && say "dry run -- nothing will be changed"
+parse_module_args "$@"
 
 check_input_remapper() {
   # Bazzite enables input-remapper by default and hides its desktop entry, so
@@ -90,24 +83,16 @@ else
 fi
 
 # Each file is installed only when it differs, and keyd is restarted only when
-# one of them did, since keyd 2.6.0 can crash after loading its config.
+# one of them did, since keyd 2.6.0 can crash after loading its config. On
+# ostree systems /etc is writable, and files with no /usr/etc counterpart
+# survive upgrades and rebases via the 3-way merge.
 keyd_changed=0
-install_if_changed() {
-  local src="$1" dest="$2"
-  if cmp -s "$src" "$dest"; then
-    skip "$(basename "$dest")" "$dest matches the repo"
-    return 1
-  fi
-  say "installing $dest"
-  # On ostree systems /etc is writable, and files with no /usr/etc counterpart
-  # survive upgrades and rebases via the 3-way merge.
-  run sudo install -Dm644 "$src" "$dest"
-}
-
-install_if_changed "$MODULE/default.conf" /etc/keyd/default.conf && keyd_changed=1
-install_if_changed "$MODULE/local-overrides.quirks" /etc/libinput/local-overrides.quirks || true
+install_file --root "$MODULE/default.conf" /etc/keyd/default.conf
+(( FILE_CHANGED )) && keyd_changed=1
+install_file --root "$MODULE/local-overrides.quirks" /etc/libinput/local-overrides.quirks
 # Before enabling, so the first start already has the policy.
-if install_if_changed "$MODULE/keyd-restart.conf" /etc/systemd/system/keyd.service.d/restart.conf; then
+install_file --root "$MODULE/keyd-restart.conf" /etc/systemd/system/keyd.service.d/restart.conf
+if (( FILE_CHANGED )); then
   run sudo systemctl daemon-reload
   keyd_changed=1
 fi
@@ -129,8 +114,7 @@ else
   skip keyd "running with the installed config"
 fi
 
-say "installing user app.conf"
-run install -Dm644 "$MODULE/app.conf" "$HOME/.config/keyd/app.conf"
+install_file "$MODULE/app.conf" "$HOME/.config/keyd/app.conf"
 
 if ! id -nG "$USER" | grep -qw keyd; then
   say "adding $USER to the keyd group (needed for keyd-application-mapper)"
@@ -172,22 +156,29 @@ install_mapper_extension() {
   # the packaged list stops at the GNOME current when keyd was released, and
   # the Shell skips an extension whose list omits the running version.
   #
-  # This is the hash of the packaged file it was forked from. A different one
-  # means keyd changed its extension, and the fork needs reviewing against it.
-  local upstream=/usr/share/keyd/gnome-extension-45/extension.js
-  local forked_from=168660dc5aa7816683498657a2106f39197f2859323442dafdbe7274657bc81e
-  if [[ -f "$upstream" ]] && [[ "$(sha256sum "$upstream" | cut -d' ' -f1)" != "$forked_from" ]]; then
-    warn "keyd's packaged GNOME extension has changed; compare $upstream with $src/extension.js"
+  # These are the hashes of the packaged files it was forked from. Different
+  # ones mean keyd changed its extension, and the fork needs reviewing against
+  # it. A source build installs under /usr/local.
+  local upstream="" d f want got
+  for d in /usr/share/keyd/gnome-extension-45 /usr/local/share/keyd/gnome-extension-45; do
+    [[ -f "$d/extension.js" ]] && { upstream="$d"; break; }
+  done
+  if [[ -z "$upstream" ]]; then
+    warn "keyd's packaged GNOME extension is not where it was; check the fork in $src against the installed keyd"
+  else
+    for f in "extension.js 168660dc5aa7816683498657a2106f39197f2859323442dafdbe7274657bc81e" \
+             "metadata.json 09a8faf09e772a8e17fd00fbfba21d03f141db40649d678b462ac69963a65036"; do
+      want="${f#* }"
+      got="$(sha256sum "$upstream/${f%% *}" 2>/dev/null | cut -d' ' -f1)"
+      [[ "$got" == "$want" ]] \
+        || warn "keyd's packaged ${f%% *} has changed; compare $upstream with $src"
+    done
   fi
 
-  if cmp -s "$src/extension.js" "$dest/extension.js" && cmp -s "$src/metadata.json" "$dest/metadata.json"; then
-    skip "mapper extension" "$dest matches the repo"
-  else
-    say "installing keyd's GNOME extension to $dest"
-    run install -Dm644 "$src/extension.js" "$dest/extension.js"
-    run install -Dm644 "$src/metadata.json" "$dest/metadata.json"
-    echo "    the Shell reads extensions at login; log out and back in"
-  fi
+  local changed=0
+  install_file "$src/extension.js" "$dest/extension.js"; (( FILE_CHANGED )) && changed=1
+  install_file "$src/metadata.json" "$dest/metadata.json"; (( FILE_CHANGED )) && changed=1
+  (( changed )) && echo "    the Shell reads extensions at login; log out and back in"
 
   # Written to the setting directly: the Shell refuses to record an extension
   # it has not loaded, which is every extension until the next login.

@@ -171,10 +171,16 @@ instead: Cmd+C/V do nothing, while Cmd+Z and Cmd+S send Ctrl+Z and Ctrl+S.
 
 ## GNOME Shell's own text fields
 
-The overview's search entry and the Shell's dialogs (run, polkit, unlock) are
-Clutter text fields. They take Ctrl+C/X/V but not Ctrl+Insert or Shift+Delete,
-so there Cmd+C/X/V send Ctrl+C/X/V. Nothing runs in them that Ctrl+C could
-interrupt.
+The overview's search entry is a Clutter text field. It takes Ctrl+C/X/V but
+not Ctrl+Insert or Shift+Delete, so there Cmd+C/X/V send Ctrl+C/X/V. The
+extension reports the overview as it opens and the focused window again as it
+starts to close, so that mapping never reaches a terminal.
+
+The Shell's dialogs (run, polkit, unlock) are Clutter text fields too, but
+Cmd+C/X/V do not work in them: they keep the section of the window underneath.
+The Shell signals a dialog opening and not closing, so a section for dialogs
+would outlive them and send Ctrl+C to that window afterwards. Type a password,
+or use Ctrl+V.
 
 ## Emacs
 

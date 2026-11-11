@@ -1,0 +1,51 @@
+# Every package this repo installs that Homebrew can install, read by
+# `brew bundle` (install.sh, checks.sh). Setup a package manager cannot do --
+# config links, toolchains, containers -- lives in apps.d/.
+#
+# Add a package here, not as an apps.d entry: `brew bundle add --file=Brewfile
+# <name>`, or the bbrew TUI that Bazzite ships.
+
+# ublue-os repackage vendors' own Linux builds as casks. Trusting the tap lets
+# brew run its casks' Ruby, and the 1Password casks use sudo: a polkit policy in
+# /etc/polkit-1/actions, the onepassword group, and setuid/setgid helpers.
+tap "ublue-os/tap", trusted: true
+
+# rustup first: its post_install adds to share/pwsh, which fails when fd's keg
+# already owns that directory as a symlink (install.sh splits it on a machine
+# where that has already happened).
+brew "rustup"
+
+# go, and the tools Doom's :lang go binds keys to
+brew "go"
+brew "gopls"
+brew "gomodifytags"
+brew "gotests"
+
+# zls is built against one zig release and refuses any other
+brew "zig"
+brew "zls"
+
+brew "kubernetes-cli"
+brew "opentofu"
+brew "tofu-ls"
+# modules/fonts keeps its .otf files in LFS
+brew "git-lfs"
+
+# What Doom's modules shell out to (apps.d/emacs)
+brew "ripgrep"
+brew "fd"
+brew "shellcheck"
+brew "shfmt"
+brew "markdown"
+brew "graphviz"
+
+# op and the desktop app must come from the same install, or the CLI
+# integration fails with "connecting to desktop app"
+cask "ublue-os/tap/1password-gui-linux"
+cask "ublue-os/tap/1password-cli-linux"
+# Bootstraps Toolbox, which then installs and updates itself
+cask "ublue-os/tap/jetbrains-toolbox-linux"
+cask "opencode-desktop"
+
+# Nautilus's Space preview (Quick Look in modules/keybindings/KEYMAP.md)
+flatpak "org.gnome.NautilusPreviewer"

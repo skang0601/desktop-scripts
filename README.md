@@ -3,9 +3,14 @@
 My Linux desktop setup, kept in git so a reinstall is a checkout and one
 command, and so several machines can share what they have in common.
 
-**Target environment:** GNOME on Wayland. The main machine runs Bazzite; the
-installers also support traditional Fedora, branching on `dnf` versus
-atomic/image-based (`rpm-ostree`, bootc) systems.
+**Target environment:** GNOME on Wayland, on Fedora. The main machine runs
+Bazzite; the installers branch on atomic/image-based (`rpm-ostree`, bootc)
+versus traditional systems, and packages come from Homebrew (ADR 0006), which
+Bazzite ships.
+
+The scripts are Bash 4+ with GNU coreutils, findutils and sed (`mapfile`,
+`find -printf`, `stat -c`). That is deliberate: they target Linux, and staying
+POSIX-portable would cost readability for machines this never runs on.
 
 ## Setup on a new machine
 
@@ -16,9 +21,9 @@ cd ~/Workspace/desktop-scripts
 ```
 
 `bootstrap.sh` looks for `hosts/$(hostname).modules` -- a plain list of module
-names -- and runs each module's `install.sh` in order. With no host file it runs
-everything and tells you it did. Every installer is idempotent, so re-running
-after adding a module is the normal way to work.
+names -- and runs each module's `install.sh` in order. With no host file it
+stops and asks for `--host` or `--all`. Every installer is idempotent, so
+re-running after adding a module is the normal way to work.
 
 Note that Fedora leaves the hostname unset, falling back to `fedora` for every
 such machine, so set one per install or pass `--host`. See
@@ -28,6 +33,7 @@ such machine, so set one per install or pass `--host`. See
 ./bootstrap.sh --list          # what's available and what this host enables
 ./bootstrap.sh --dry-run       # print every command, change nothing
 ./bootstrap.sh --host bazzite  # pick a profile explicitly
+./bootstrap.sh --all           # every module, on a machine with no profile
 ./bootstrap.sh keybindings     # run one module, ignoring the host file
 ```
 
@@ -39,8 +45,9 @@ machine is about to have done to it.
 ```
 bootstrap.sh          runs each enabled module's install.sh
 doctor.sh             runs each module's checks.sh and reports actual state
-lib/common.sh         say/warn/run/dry, link_config, is_atomic
+lib/common.sh         say/warn/run/dry, parse_module_args, install_file, link_config
 lib/checks.sh         check_ok / check_warn / check_fail / check_blocked
+lib/hosts.sh          host profiles, for bootstrap.sh and doctor.sh
 hosts/*.modules       which modules a given machine enables
 modules/<name>/       install.sh + checks.sh + config + README
 docs/decisions/       ADRs
@@ -67,7 +74,7 @@ A module opts in by adding `checks.sh` defining `module_checks()`. As with
 | Module | What it does |
 | --- | --- |
 | [`keybindings`](modules/keybindings/) | macOS keys via keyd, specified in [KEYMAP.md](modules/keybindings/KEYMAP.md), plus the GNOME shortcuts that go with them |
-| [`packages`](modules/packages/) | apps and tooling, one file per app in `apps.d/`, each installed only when missing: editors and languages, 1Password, Steam, and the local LLM stack (ollama, OpenCode, SearXNG) |
+| [`packages`](modules/packages/) | every package in a `Brewfile` applied with `brew bundle`, plus setup in `apps.d/`: Doom Emacs, rustup's toolchain, 1Password's autostart, and the local LLM stack (ollama, OpenCode, SearXNG) |
 | [`shell`](modules/shell/) | bash PATH and editor defaults |
 | [`git`](modules/git/) | global git config |
 | [`ssh`](modules/ssh/) | ssh client config; keys come from the 1Password agent |

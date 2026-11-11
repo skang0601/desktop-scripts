@@ -1,10 +1,16 @@
-// keyd's GNOME extension (data/gnome-extension-45 in keyd 2.6.0), with three
+// keyd's GNOME extension (data/gnome-extension-45 in keyd 2.6.0), with these
 // differences:
 //   - It does not start or kill keyd-application-mapper; the systemd user unit
 //     keyd-application-mapper.service owns the mapper.
 //   - It reports the overview as the window class "gnome-shell-overview". The
 //     overview is not a window, so without this the mapper keeps applying the
 //     last window's app.conf section to the overview's search entry.
+//   - It does not report system modals (run, polkit). The Shell signals a modal
+//     opening but not closing, so the mapper would keep the modal's section for
+//     the window underneath once it closed; the window's own section stays in
+//     force over the modal instead.
+//   - It reports the focused window on enable, which the Shell also does on
+//     every unlock, so the mapper does not keep a section from before the lock.
 //   - Its signal handlers are disconnected on disable.
 //
 // The mapper reads "<class>\t<title>\n" lines from $XDG_RUNTIME_DIR/keyd.fifo.
@@ -68,24 +74,19 @@ export default class KeydExtension extends Extension {
 		);
 
 		// Leaving the overview for the window that was already focused emits no
-		// focus-app change, so the focus is resent when it closes.
+		// focus-app change, so the focus is resent as it starts to close: the
+		// window has keyboard focus from then, not only once the animation ends.
 		Main.overview.connectObject(
 			'showing', () => send('gnome-shell-overview	\n'),
-			'hidden', () => sendFocus(),
+			'hiding', () => sendFocus(),
 			this
 		);
 
-		Main.layoutManager.connectObject(
-			'system-modal-opened', () => {
-				send(`system-modal	${global.stage.get_title()}\n`);
-			},
-			this
-		);
+		sendFocus();
 	}
 
 	disable() {
 		Shell.WindowTracker.get_default().disconnectObject(this);
 		Main.overview.disconnectObject(this);
-		Main.layoutManager.disconnectObject(this);
 	}
 }

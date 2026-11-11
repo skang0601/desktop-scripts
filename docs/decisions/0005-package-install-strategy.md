@@ -3,6 +3,8 @@
 - Status: accepted
 - Date: 2026-07-19
 - Extends: [0004](0004-installing-on-atomic-systems.md)
+- Amended by: [0006](0006-brewfile-package-list.md) -- the package list is a
+  Brewfile, Homebrew is required, and the dnf route below is gone
 
 ## Context
 
@@ -45,8 +47,9 @@ Installers pick a method by how little it disturbs the system:
 5. **Vendor installers** where nothing else is published, confined to `$HOME`.
 6. **`rpm-ostree` layering** last, with an explicit reboot warning.
 
-Every app declares an `app_check` that gates its install, so the module is
-idempotent and re-running it after adding an entry only installs the new one.
+Brew-installable packages are listed in a Brewfile (ADR 0006); every other app
+declares an `app_check` that gates its install, so the module is idempotent and
+re-running it after adding an entry only installs the new one.
 
 The keybindings module is the standing exception: keyd needs root-level evdev
 access, so it layers. That is the case layering exists for.
@@ -148,9 +151,8 @@ Reference: [distrobox useful tips](https://distrobox.it/useful_tips/),
 
 ## Consequences
 
-- The same app can arrive by different routes on different machines -- brew on
-  Bazzite, dnf on Workstation. Version skew between machines is possible and
-  accepted; pinning versions is a bigger commitment than this repo wants.
+- Version skew between machines is possible and accepted; pinning versions is a
+  bigger commitment than this repo wants.
 - Homebrew's Linux builds are less exercised than its macOS ones. If a formula
   misbehaves, the fallback is to install natively and let `app_check` find it.
 - GUI apps under Flatpak are sandboxed. That is usually fine and occasionally is
@@ -161,8 +163,8 @@ Reference: [distrobox useful tips](https://distrobox.it/useful_tips/),
   host without layering, brew is the one that also keeps `op`, the polkit policy
   and browser integration working without special handling.
   Trusting that tap is a real decision -- its casks sudo into
-  `/etc/polkit-1/actions` and set setuid bits -- and is named in the app rather
-  than granted broadly.
+  `/etc/polkit-1/actions` and set setuid bits -- and is named in the Brewfile
+  rather than granted broadly.
 - Sandbox limits are the thing to check before choosing Flatpak, and they are
   not always visible from the app's description. The Flathub manifest's
   `finish-args` is the authority: an app with no `--filesystem=home` cannot

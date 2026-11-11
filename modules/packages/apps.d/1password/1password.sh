@@ -6,14 +6,11 @@ APP_NAME=1password
 # needing that socket to appear on the host.
 AGENT_SOCK="$HOME/.1password/agent.sock"
 
-# ublue-os package 1Password's own Linux tarball from downloads.1password.com
-# rather than rebuilding it, so this is the vendor's binary by a different route
-# (ADR 0005). The two alternatives both fail on an atomic system: the rpm's
-# %post aborts under rpm-ostree, and the Flatpak has no --filesystem=home, so
-# its agent socket is created inside a redirected $HOME and never reaches the
-# ssh module.
-GUI_CASK="$UBLUE_TAP/1password-gui-linux"
-CLI_CASK="$UBLUE_TAP/1password-cli-linux"
+# The app and op are the ublue-os casks in ../../Brewfile: 1Password's own Linux
+# tarball, repackaged (ADR 0005). The two alternatives both fail on an atomic
+# system: the rpm's %post aborts under rpm-ostree, and the Flatpak has no
+# --filesystem=home, so its agent socket is created inside a redirected $HOME
+# and never reaches the ssh module.
 
 # 1Password writes this file itself when "Start at login" is on, and hardcodes
 # Exec=/opt/1Password/1password -- where its own .deb and .rpm install. The cask
@@ -46,36 +43,18 @@ autostart_exec() {
 
 autostart_ok() { ! wants_autostart || autostart_exec >/dev/null; }
 
-# op and the desktop app have to come from the same install. The app integration
-# refuses a CLI it cannot match to the running app -- a brew op against a
-# container app, or the reverse, fails with "connecting to desktop app".
 app_check() { have 1password && have op && autostart_ok; }
 
 app_install() {
-  if ! have brew; then
-    # No brew means a traditional system, where the rpm installs cleanly.
-    add_1password_repo
-    have op || install_rpm 1password-cli
-    have 1password || install_rpm 1password
-    return 0
+  if ! have 1password || ! have op; then
+    warn "1password or op is missing; both come from the Brewfile, which install.sh applies first"
+    return 1
   fi
 
-  # Trusting the tap lets brew run its Ruby, and these casks use sudo: they
-  # install a polkit policy to /etc/polkit-1/actions, create the onepassword
-  # group, and set the setgid bit on 1Password-BrowserSupport and setuid on
-  # chrome-sandbox. That is more than a user-level install, and it is why the
-  # tap is named at each point of use rather than trusted blanket-wise.
-  say "trusting $UBLUE_TAP; its casks run sudo for the polkit policy and setuid bits"
-  brew_tap_trusted "$UBLUE_TAP"
-
-  # Prompts for sudo, for the polkit policy and setuid bits above.
-  have 1password || install_cask "$GUI_CASK"
-  have op || install_cask "$CLI_CASK"
+  install_autostart
 
   say "sign in, then enable Settings -> Developer -> 'Use the SSH agent'"
   say "and 'Integrate with 1Password CLI' for op"
-
-  install_autostart
 }
 
 # Rewritten by the app whenever "Start at login" is toggled, so this repairs
@@ -108,30 +87,6 @@ MimeType=x-scheme-handler/onepassword;x-scheme-handler/onepassword8;
 Categories=Office;
 X-GNOME-Autostart-enabled=true
 EOF
-}
-
-# 1Password's own RPM repo, for systems without brew. Neither the desktop app
-# nor `op` is in Fedora's repos.
-#
-# gpgkey is written unquoted, unlike 1Password's own snippet: rpm-ostree has
-# been reported to fail with "Signing key not found" on the quoted form
-# (fedora-silverblue/issue-tracker#658).
-add_1password_repo() {
-  [[ -f /etc/yum.repos.d/1password.repo ]] && return 0
-
-  run sudo rpm --import https://downloads.1password.com/linux/keys/1password.asc
-  if dry; then
-    printf '    [dry-run] write /etc/yum.repos.d/1password.repo\n'
-  else
-    printf '%s\n' \
-      '[1password]' \
-      'name="1Password Stable Channel"' \
-      'baseurl=https://downloads.1password.com/linux/rpm/stable/$basearch' \
-      'enabled=1' \
-      'gpgcheck=1' \
-      'gpgkey=https://downloads.1password.com/linux/keys/1password.asc' |
-      sudo install -Dm644 /dev/stdin /etc/yum.repos.d/1password.repo
-  fi
 }
 
 app_checks() {
@@ -178,11 +133,6 @@ app_checks() {
     # boundary, so this cannot reach an app installed on the host.
     check_warn "op cli" "$op_path is a container wrapper; it cannot reach the host app" \
       "rm $op_path && ./modules/packages/install.sh 1password"
-  elif rpm -q 1password-cli >/dev/null 2>&1; then
-    # Works against the brew app -- both are on the host, which is all the app
-    # integration requires. Layered rather than brewed is untidy against the
-    # ranking above, not broken, so it is not a warning.
-    check_ok "op cli" "$op_path (layered rpm; the $CLI_CASK cask would unlayer it)"
   else
     check_ok "op cli" "$op_path"
   fi

@@ -25,42 +25,11 @@ emacs_gui() {
   emacs -Q --batch --eval '(kill-emacs (if (fboundp (quote x-create-frame)) 0 1))' 2>/dev/null
 }
 
-# External programs `doom doctor` asks for, given the modules enabled in
-# doom/init.el: the binary, then the Fedora and brew package names for it.
-#
-# Only the ones no other app already installs are here. Language servers live
-# with their languages -- gopls under go, zls under zig, rust-analyzer in the
-# rustup toolchain -- so a machine gets them whether or not it runs emacs.
-DOOM_DEPS=(
-  # doom itself, and :tools magit
-  "git        git         git"
-  # :completion vertico, :tools lookup
-  "rg         ripgrep     ripgrep"
-  "fd         fd-find     fd"
-  # :lang sh -- shellcheck for :checkers syntax, shfmt for :editor format
-  "shellcheck ShellCheck  shellcheck"
-  "shfmt      shfmt       shfmt"
-  # :lang markdown -- markdown-mode shells out to `markdown` for the preview
-  "markdown   discount    markdown"
-  # :lang org +roam -- graphviz's `dot` renders the roam graph
-  "dot        graphviz    graphviz"
-)
-
-# app_check gates on this, so adding a row above installs it on the next run.
-doom_deps_present() {
-  local dep
-  for dep in "${DOOM_DEPS[@]}"; do
-    # shellcheck disable=SC2086  # deliberate word splitting of the table row
-    set -- $dep
-    have "$1" || return 1
-  done
-}
-
 # The config link is compared by target, not by existence: -L alone is true of a
 # link left dangling by a moved or renamed source, which is exactly the state
 # that needs relinking.
 app_check() {
-  emacs_gui && doom_installed && doom_deps_present \
+  emacs_gui && doom_installed \
     && [[ "$(readlink -f "$(doomdir)" 2>/dev/null)" == "$(readlink -f "$APP_DIR/doom")" ]]
 }
 
@@ -78,13 +47,6 @@ app_install() {
     fi
     install_rpm emacs
   fi
-
-  local dep
-  for dep in "${DOOM_DEPS[@]}"; do
-    # shellcheck disable=SC2086  # deliberate word splitting of the table row
-    set -- $dep
-    have "$1" || install_cli "$2" "$3"
-  done
 
   local fresh=0
   if ! doom_installed; then

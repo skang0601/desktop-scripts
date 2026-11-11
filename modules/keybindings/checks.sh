@@ -24,6 +24,8 @@ keyd_crash_check() {
   fi
 }
 
+GSETTINGS_FIX="./modules/keybindings/gsettings.sh"
+
 module_checks() {
   have keyd || { check_fail "keyd" "not installed" "./modules/keybindings/install.sh"; return 0; }
   check_ok "keyd" "$(keyd --version 2>&1 | head -1)"
@@ -84,10 +86,13 @@ module_checks() {
     check_fail "keyd socket" "/run/keyd.socket is missing" "sudo systemctl restart keyd"
   fi
 
-  check_installed_matches "mapper extension" \
-    "$MODULE/gnome-extension/extension.js" \
-    "$HOME/.local/share/gnome-shell/extensions/keyd@keyd.rvaiya.github.com/extension.js" \
-    "./modules/keybindings/install.sh"
+  local f
+  for f in extension.js metadata.json; do
+    check_installed_matches "mapper $f" \
+      "$MODULE/gnome-extension/$f" \
+      "$HOME/.local/share/gnome-shell/extensions/keyd@keyd.rvaiya.github.com/$f" \
+      "./modules/keybindings/install.sh"
+  done
 
   check_installed_matches "mapper unit" \
     "$MODULE/keyd-application-mapper.service" \
@@ -142,13 +147,13 @@ module_checks() {
 
   # The GNOME shortcuts keyd's layers collide with (Layer 2).
   check_dconf "app grid key" org.gnome.shell.keybindings \
-    toggle-application-view "['<Shift><Super>space']"
+    toggle-application-view "['<Shift><Super>space']" "$GSETTINGS_FIX"
   check_dconf "overview key" org.gnome.shell.keybindings \
-    toggle-overview "['<Super>space']"
+    toggle-overview "['<Super>space']" "$GSETTINGS_FIX"
   check_dconf_unset "gtk-key-theme" /org/gnome/desktop/interface/gtk-key-theme
 
   check_dconf "input-source key" org.gnome.desktop.wm.keybindings \
-    switch-input-source "@as []"
+    switch-input-source "@as []" "$GSETTINGS_FIX"
 
   # Bare-Ctrl accelerators here would swallow the keys app.conf hands back to
   # the shell, so the check is that no override exists at all.

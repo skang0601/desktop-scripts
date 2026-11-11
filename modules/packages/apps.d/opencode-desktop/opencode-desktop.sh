@@ -4,6 +4,7 @@ APP_NAME=opencode-desktop
 # Reported with the rest of the local-LLM stack it is a client of.
 APP_GROUP="local llm"
 
+# The app is the opencode-desktop cask in ../../Brewfile.
 CASK=opencode-desktop
 
 # The desktop app runs the same opencode server as the CLI, and both read the
@@ -23,12 +24,6 @@ CODER_MODELFILE() { printf '%s/devstral-small-2-48k.Modelfile\n' "$APP_DIR"; }
 
 ROLES="$HOME/.local/share/ollama/roles.env"
 role() { awk -F= -v k="$1" '$1 == k { print $2; exit }' "$ROLES" 2>/dev/null; }
-
-app_blocked() {
-  have brew && return 1
-  echo "no brew; the cask is how OpenCode's own AppImage is installed here"
-  return 0
-}
 
 cask_installed() { brew list --cask "$CASK" >/dev/null 2>&1; }
 
@@ -56,12 +51,12 @@ config_names_ollama_model() {
   [[ -n "$model" ]] && grep -q "\"ollama/$model\"" "$APP_DIR/opencode.json"
 }
 
-app_check() { cask_installed && configs_linked && coder_current; }
+app_check() { configs_linked && coder_current; }
 
 app_install() {
   require_app ollama
 
-  cask_installed || install_cask "$CASK"
+  cask_installed || warn "the $CASK cask is not installed; it comes from the Brewfile"
 
   local f
   for f in "${CONFIG_FILES[@]}"; do

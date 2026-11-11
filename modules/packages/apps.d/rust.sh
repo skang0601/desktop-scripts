@@ -1,35 +1,20 @@
 # shellcheck shell=bash
 APP_NAME=rust
 
-app_check() { have rustup; }
+# rustup is in the Brewfile; it ships the installer alone, and the toolchain it
+# manages is a second step. rustup rather than brew's rust formula, so a project
+# pinned to another toolchain has somewhere to go.
+app_check() { have_rustup && [[ -n "$("$(rustup_bin)" show active-toolchain 2>/dev/null)" ]]; }
 
 app_install() {
-  # rustup rather than brew's rust formula: rust is one toolchain for the whole
-  # machine, and a project pinned to another version has nowhere to go. They
-  # provide the same binaries, so leaving both installed decides the toolchain
-  # by PATH order.
-  if have brew && brew list --formula rust >/dev/null 2>&1; then
-    say "removing the rust formula, superseded by rustup"
-    run brew uninstall --formula --ignore-dependencies rust
-  fi
-
-  # rustup's post_install adds a file to share/pwsh, which fd already owns.
-  brew_split_shared_dir share/pwsh
-  local pwsh_owner="$BREW_SPLIT_OWNER"
-
-  install_cli rustup
-
-  if [[ -n "$pwsh_owner" ]]; then
-    brew_relink "$pwsh_owner"
-  fi
-
-  # brew ships the installer alone; the toolchain it manages is a second step.
-  # By path because a keg-only formula reaches PATH through the entry in
-  # modules/shell, which a new shell reads, not this one.
-  local rustup=rustup
-  have brew && rustup="$(brew --prefix rustup)/bin/rustup"
-  run "$rustup" default stable
+  have_rustup || { warn "no rustup; it comes from the Brewfile, which install.sh applies first"; return 1; }
+  run "$(rustup_bin)" default stable
 }
+
+# By path because the keg-only formula reaches PATH through the entry in
+# modules/shell, which a new shell reads, not this one.
+rustup_bin() { printf '%s/bin/rustup\n' "$(brew --prefix rustup)"; }
+have_rustup() { have brew && [[ -x "$(rustup_bin)" ]]; }
 
 app_checks() {
   have rustup || return 0

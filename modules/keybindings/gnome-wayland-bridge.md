@@ -29,12 +29,19 @@ below the display server, so Wayland's restrictions do not apply.
     `keyd-application-mapper -d` on enable and kills it on disable; the systemd
     unit owns the mapper instead.
   - **It reports the overview** as the class `gnome-shell-overview`, and the
-    focused window again when the overview closes. The overview is not a
-    window, so otherwise the last window's section applies to its search
+    focused window again as the overview starts to close. The overview is not
+    a window, so otherwise the last window's section applies to its search
     entry.
+  - **It does not report system modals.** The packaged extension sends
+    `system-modal` when one opens, but the Shell has no matching signal for a
+    modal closing, so that state outlives the dialog.
+  - **It reports the focused window on enable.** Extensions without an
+    `unlock-dialog` session mode are disabled while the screen is locked and
+    re-enabled on unlock, so this resets the mapper after every lock.
 
-  The installer records the hash of the packaged `extension.js` the copy was
-  made from, and warns when the installed keyd ships a different one.
+  The installer records the hashes of the packaged `extension.js` and
+  `metadata.json` the copy was made from, and warns when the installed keyd
+  ships different ones, or none where it looks.
 - **The mapper** runs as `keyd-application-mapper.service`, a user unit. It
   waits up to a minute for the extension's FIFO, runs in the foreground so
   systemd can restart it, and logs to the journal.

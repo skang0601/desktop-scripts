@@ -11,6 +11,26 @@ say()  { printf '==> %s\n' "$*"; }
 warn() { printf '!!  %s\n' "$*" >&2; }
 skip() { printf '    %-14s %s\n' "$1" "${2:-already present}"; }
 
+# The options every module installer takes. Positional arguments are an error
+# unless the caller passes --with-args first, and are then left in ARGS.
+parse_module_args() {
+  local with_args=0 a
+  if [[ "${1:-}" == --with-args ]]; then with_args=1; shift; fi
+  ARGS=()
+  for a in "$@"; do
+    case "$a" in
+      --dry-run) DRY_RUN=1 ;;
+      -*) warn "unknown option: $a"; exit 2 ;;
+      *)
+        (( with_args )) || { warn "unexpected argument: $a"; exit 2; }
+        ARGS+=("$a")
+        ;;
+    esac
+  done
+  dry && say "dry run -- nothing will be changed"
+  return 0
+}
+
 # Run a command, or print it under --dry-run. Only handles simple commands:
 # anything with a pipe, redirect or shell construct needs an explicit
 # `if dry; then ... else ... fi` so the dry-run output stays honest.
@@ -22,15 +42,24 @@ run() {
   fi
 }
 
-# Write to a root-owned path via a heredoc/stdin, dry-run aware.
-run_write_root() {
-  local dest="$1" mode="${2:-644}"
-  if dry; then
-    printf '    [dry-run] install -Dm%s /dev/stdin %s\n' "$mode" "$dest"
-    cat >/dev/null
-  else
-    sudo install -Dm"$mode" /dev/stdin "$dest"
+# Copy a repo file into place only when it differs, so a re-run is a no-op.
+#   install_file [--root] <src> <dest> [mode]
+# Sets FILE_CHANGED to 1 when it installed and 0 when dest already matched, for a
+# caller that restarts something only on a change. Returns 0 either way, so a
+# bare call is safe under errexit.
+install_file() {
+  local sudo=()
+  if [[ "$1" == --root ]]; then sudo=(sudo); shift; fi
+  local src="$1" dest="$2" mode="${3:-644}"
+
+  FILE_CHANGED=0
+  if cmp -s "$src" "$dest"; then
+    skip "$(basename "$dest")" "$dest matches the repo"
+    return 0
   fi
+  say "installing $dest"
+  run "${sudo[@]}" install -Dm"$mode" "$src" "$dest"
+  FILE_CHANGED=1
 }
 
 # Symlink a repo file into place, preserving anything real already there.

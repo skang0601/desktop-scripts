@@ -73,8 +73,8 @@ app_install() {
   require_app opencode-desktop
 
   run mkdir -p "$WORKSPACE" "$DATA" "$UPLOADS" "$CONFIG_DIR"
-  run install -m 644 "$(CONFIG_SRC)" "$CONFIG_DIR/opencode.json"
-  run install -m 644 "$(AGENTS_SRC)" "$CONFIG_DIR/AGENTS.md"
+  install_file "$(CONFIG_SRC)" "$CONFIG_DIR/opencode.json"
+  install_file "$(AGENTS_SRC)" "$CONFIG_DIR/AGENTS.md"
   write_envfile
   link_config "$(QUADLET_SRC)" "$QUADLET"
 

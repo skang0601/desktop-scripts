@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Install apps and tooling that aren't already on the system.
+# Install the Brewfile, then set up the apps in apps.d/.
 #
-#   ./install.sh                 # everything in apps.d/
-#   ./install.sh emacs go        # only these
+#   ./install.sh                 # the Brewfile, then every app in apps.d/
+#   ./install.sh emacs rust      # only these apps, without the Brewfile
+#   ./install.sh --upgrade       # also upgrade everything the Brewfile lists
 #   ./install.sh --dry-run       # show what would happen, change nothing
 #
 # Each app is a file in apps.d/ defining APP_NAME, app_check and app_install.
-# Idempotent: app_check gates every install, so re-running is a no-op.
+# Idempotent: `brew bundle check` gates the Brewfile and app_check gates every
+# app, so re-running is a no-op.
 set -euo pipefail
 
 MODULE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,16 +17,20 @@ source "$MODULE/../../lib/common.sh"
 # shellcheck source=lib.sh
 source "$MODULE/lib.sh"
 
-ARGS=()
+# --upgrade belongs to this module alone, so it is taken out before the shared
+# parser sees it.
+UPGRADE=--no-upgrade
+rest=()
 for a in "$@"; do
-  case "$a" in
-    --dry-run) DRY_RUN=1 ;;
-    -*) warn "unknown option: $a"; exit 2 ;;
-    *) ARGS+=("$a") ;;
-  esac
+  if [[ "$a" == --upgrade ]]; then UPGRADE=--upgrade; else rest+=("$a"); fi
 done
+parse_module_args --with-args "${rest[@]}"
 
-dry && say "dry run -- nothing will be installed"
+if ! have brew; then
+  warn "no Homebrew; this module installs through it (ADR 0006)"
+  warn "Bazzite ships it; elsewhere see https://brew.sh"
+  exit 1
+fi
 
 if [[ ${#ARGS[@]} -gt 0 ]]; then
   NAMES=("${ARGS[@]}")
@@ -39,6 +45,45 @@ LAYERED_MARKER="$(mktemp -u)"
 export LAYERED_MARKER
 RESULTS="$(mktemp)"
 trap 'rm -f "$LAYERED_MARKER" "$RESULTS"' EXIT
+
+# Named apps are a targeted re-run, which the Brewfile has no part in.
+if [[ ${#ARGS[@]} -gt 0 && "$UPGRADE" == --upgrade ]]; then
+  warn "--upgrade applies to the Brewfile, which a run naming apps skips"
+  exit 2
+fi
+if [[ ${#ARGS[@]} -eq 0 ]]; then
+  # Without --upgrade, a run adds what is missing and leaves versions alone, so
+  # a re-run changes nothing. With it, `check` also counts an outdated entry as
+  # unsatisfied, and `install` upgrades it. `check` has --no-upgrade but no
+  # --upgrade: checking versions is its default.
+  check_args=()
+  [[ "$UPGRADE" == --upgrade ]] || check_args=(--no-upgrade)
+  if brew_bundle check "${check_args[@]}" >/dev/null 2>&1; then
+    skip "Brewfile" "every entry installed$([[ "$UPGRADE" == --upgrade ]] && echo ' and current')"
+    printf 'present\tBrewfile\n' >>"$RESULTS"
+  else
+    if [[ "$UPGRADE" == --upgrade ]]; then
+      say "installing and upgrading from the Brewfile"
+    else
+      say "installing from the Brewfile"
+    fi
+    if dry; then
+      brew_bundle check "${check_args[@]}" --verbose 2>&1 | sed 's/^/    /' || true
+      printf '    [dry-run] brew bundle install %s --file=%s\n' "$UPGRADE" "$BREWFILE"
+      printf 'installed\tBrewfile\n' >>"$RESULTS"
+    else
+      brew_split_shared_dir share/pwsh
+      pwsh_owner="$BREW_SPLIT_OWNER"
+      if brew_bundle install "$UPGRADE"; then
+        printf 'installed\tBrewfile\n' >>"$RESULTS"
+      else
+        warn "brew bundle failed; the apps below run anyway"
+        printf 'failed\tBrewfile\n' >>"$RESULTS"
+      fi
+      [[ -z "$pwsh_owner" ]] || brew_relink "$pwsh_owner"
+    fi
+  fi
+fi
 
 for name in "${NAMES[@]}"; do
   f="$(app_path "$name")"

@@ -11,14 +11,7 @@ source "$MODULE/../../lib/common.sh"
 # shellcheck source=./common.sh
 source "$MODULE/common.sh"
 
-for a in "$@"; do
-  case "$a" in
-    --dry-run) DRY_RUN=1 ;;
-    *) warn "unknown option: $a"; exit 2 ;;
-  esac
-done
-
-dry && say "dry run -- nothing will be changed"
+parse_module_args "$@"
 
 install_brightness() {
   # The project is its own repo so it can be developed and versioned on its
@@ -100,14 +93,9 @@ install_login_screen() {
     return 1
   fi
 
-  if cmp -s "$GDM_SRC" "$GDM_DEST"; then
-    skip monitors.xml "$GDM_DEST matches $GDM_SRC"
-    return 0
-  fi
-
   # A copy, not a symlink: the login screen's user cannot read this home.
-  say "copying $GDM_SRC to $GDM_DEST"
-  run sudo install -m644 "$GDM_SRC" "$GDM_DEST"
+  install_file --root "$GDM_SRC" "$GDM_DEST"
+  (( FILE_CHANGED )) || return 0
   run sudo restorecon "$GDM_DEST"
   say "takes effect at the next login screen"
 }

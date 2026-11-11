@@ -1,25 +1,17 @@
 # Check primitives for doctor.sh and the modules' checks.sh files.
 # shellcheck shell=bash
 
-# Nothing here changes anything, so no helper goes through `run` and there is no
-# --dry-run to honour: reporting is the whole job.
+# Read-only: nothing here goes through `run`.
 
-# Each module's checks run in their own subshell, so a variable cannot carry
-# results back. Rows accumulate in $CHECK_RESULTS as TSV instead, the same way
-# the packages module collects per-app outcomes.
-# Unit Separator, not tab. Tab is IFS whitespace, so `read` collapses a run of
-# them into one delimiter and every field after an empty one shifts left --
-# which silently corrupts every row whose group is empty. US is not whitespace,
-# so empty fields survive the round trip.
+# Each module's checks run in a subshell, so rows accumulate in $CHECK_RESULTS
+# rather than a variable. Fields are split on Unit Separator, not tab: `read`
+# collapses a run of tabs, which shifts every field after an empty one.
 FS=$'\x1f'
-# \037 is octal: tr has no \x escape, so '\x1f' there is the literal set
-# {\, x, 1, f}, and every backslash, x, 1 and f in a field becomes a space.
+# tr has no \x escape; \037 is the same byte in octal.
 _clean() { printf '%s' "$1" | tr '\t\n\037' '   '; }
 
-# $CHECK_GROUP is a "/"-separated path naming what a row belongs to, so a
-# module can nest its rows without every renderer growing a column per level:
-# "local llm/ollama" puts the row under ollama, under local llm, under the
-# module. Empty means the row belongs to the module itself.
+# $CHECK_GROUP nests a row: "local llm/ollama" puts it under ollama, under
+# local llm, under the module. Empty means the module itself.
 _record() {
   printf '%s%s%s%s%s%s%s%s%s%s%s\n' \
     "$1" "$FS" "$CHECK_MODULE" "$FS" "$(_clean "${CHECK_GROUP:-}")" "$FS" \
@@ -27,20 +19,16 @@ _record() {
     >>"$CHECK_RESULTS"
 }
 
-# fail is "this is broken now"; warn is "this works but will surprise you";
-# blocked is "cannot be in the wanted state here, the reason is known, and
-# re-running changes nothing" -- the same distinction the packages module draws,
-# and the reason blocked does not count towards the exit status. A warning
-# nobody can action is noise, and noise is what makes a real one get ignored.
+# fail: broken now. warn: works, but will surprise you. blocked: cannot be in
+# the wanted state here for a known reason that re-running will not change, so
+# it does not count towards the exit status.
 check_ok()      { _record ok      "$@"; }
 check_warn()    { _record warn    "$@"; }
 check_fail()    { _record fail    "$@"; }
 check_blocked() { _record blocked "$@"; }
 
-# The repo is the source of truth for anything installed to a system path, so a
-# difference means the installed copy was edited in place -- which the module
-# convention forbids precisely because the next install.sh run silently reverts
-# it.
+# A difference means the installed copy was edited in place, which the next
+# install.sh run would silently revert.
 check_installed_matches() {
   local label="$1" repo="$2" installed="$3" fix="${4:-}"
 
@@ -75,19 +63,6 @@ check_service_active() {
     check_ok "$label" "active"
   else
     check_fail "$label" "$unit is ${state:-unknown}" "$fix"
-  fi
-}
-
-# A service that crashes and gets restarted reports "active" afterwards, so
-# liveness alone says nothing about whether it has been healthy.
-check_no_recent_crash() {
-  local label="$1" comm="$2" since="${3:--24h}" n
-  n="$(coredumpctl list --no-pager --no-legend --since="$since" "$comm" 2>/dev/null | wc -l)"
-
-  if (( n == 0 )); then
-    check_ok "$label" "no core dumps since $since"
-  else
-    check_warn "$label" "$n core dump(s) since $since" "coredumpctl info $comm"
   fi
 }
 
@@ -126,7 +101,7 @@ check_dconf_unset() {
 }
 
 check_dconf() {
-  local label="$1" schema="$2" key="$3" want="$4" got
+  local label="$1" schema="$2" key="$3" want="$4" fix="${5:-}" got
   got="$(gsettings get "$schema" "$key" 2>/dev/null || true)"
 
   if [[ -z "$got" ]]; then
@@ -134,6 +109,6 @@ check_dconf() {
   elif [[ "$got" == "$want" ]]; then
     check_ok "$label" "$got"
   else
-    check_fail "$label" "is $got, expected $want" "./modules/keybindings/gsettings.sh"
+    check_fail "$label" "is $got, expected $want" "$fix"
   fi
 }

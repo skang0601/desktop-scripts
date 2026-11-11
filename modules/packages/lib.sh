@@ -11,33 +11,20 @@ BLOCKED=79
 # upstream thread to watch still reads as one message.
 blocked() { warn "${*//$'\n'/$'\n'    }"; exit "$BLOCKED"; }
 
-# CLI/dev tooling. Homebrew first: it is user-level, needs no reboot, and avoids
-# layering entirely on atomic systems (ADR 0004/0005). Bazzite ships brew.
-install_cli() {
-  local pkg="$1" brew_pkg="${2:-$1}"
+BREWFILE="$MODULE/Brewfile"
 
-  if have brew; then
-    run brew install "$brew_pkg"
-  else
-    warn "no brew; falling back to the distro package"
-    install_rpm "$pkg"
-  fi
-}
-
-# A cask whose install runs sudo (1Password's groupadd, for one). brew passes
-# `sudo -A` whenever SUDO_ASKPASS is set, which Fedora's profile.d always sets
-# to gnome-ssh-askpass, but brew's `env -i` allowlist keeps DISPLAY and drops
-# XAUTHORITY, so the askpass dialog is refused by Xwayland and sudo gets no
-# password. Without SUDO_ASKPASS brew calls plain sudo, which prompts on the
+# brew passes `sudo -A` whenever SUDO_ASKPASS is set, which Fedora's profile.d
+# always sets to gnome-ssh-askpass, but brew's `env -i` allowlist keeps DISPLAY
+# and drops XAUTHORITY, so Xwayland refuses the askpass dialog and sudo gets no
+# password. The 1Password casks sudo; without SUDO_ASKPASS, sudo prompts on the
 # terminal.
-install_cask() {
-  run env -u SUDO_ASKPASS brew install --cask "$@"
+brew_bundle() {
+  env -u SUDO_ASKPASS brew bundle "$@" --file="$BREWFILE"
 }
 
-# Distro package, skipping brew entirely. For anything brew builds wrong for
-# this desktop: brew's Linux bottles are headless, so a package that has to
-# draw a window comes from the distro even though on atomic systems that means
-# layering and a reboot.
+# Distro package, for anything brew builds wrong for this desktop: brew's Linux
+# bottles are headless, so a package that has to draw a window comes from the
+# distro even though on atomic systems that means layering and a reboot.
 install_rpm() {
   local pkg="$1"
 
@@ -85,19 +72,6 @@ brew_relink() {
   run brew link "$1"
 }
 
-# ublue-os repackage several vendors' own Linux builds as casks -- the vendor's
-# binary by a different route, which on an atomic system beats both a container
-# and layering (ADR 0005).
-UBLUE_TAP=ublue-os/tap
-
-# Homebrew refuses to load anything from a tap it has not been told to trust,
-# because loading a cask runs its Ruby. Trust is per tap, so an app calls this
-# after saying what that particular tap's casks do with it.
-brew_tap_trusted() {
-  run brew tap "$1"
-  run brew trust "$1"
-}
-
 # `distrobox list` prints a padded table with the name in the second column.
 distrobox_exists() {
   distrobox list 2>/dev/null | awk -F'|' 'NR>1 {gsub(/ /,"",$2); print $2}' | grep -qx "$1"
@@ -114,33 +88,6 @@ distrobox_ensure() {
   distrobox_exists "$name" && return 0
   say "creating the $name distrobox from $image"
   run distrobox create --name "$name" --image "$image" --yes "$@"
-}
-
-# distrobox mounts $HOME at the same path with the same uid, so a file the
-# container writes there is the same inode the host sees. That is the whole
-# reason an app whose value is a socket in $HOME can live in one (ADR 0005).
-in_distrobox() {
-  local name="$1"
-  shift
-  distrobox enter --name "$name" -- "$@"
-}
-
-# GUI apps. Flathub is preconfigured on Bazzite; on other systems it may not be.
-install_flatpak() {
-  local id="$1"
-  if ! have flatpak; then
-    warn "flatpak not available; skipping $id"
-    return 1
-  fi
-  if ! flatpak remotes --columns=name 2>/dev/null | grep -qx flathub; then
-    run flatpak remote-add --if-not-exists --user \
-      flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-  fi
-  run flatpak install -y --user flathub "$id"
-}
-
-flatpak_installed() {
-  flatpak info "$1" >/dev/null 2>&1
 }
 
 # An app is a bare apps.d/<name>.sh, or apps.d/<name>/<name>.sh when it carries
